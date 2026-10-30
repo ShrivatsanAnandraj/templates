@@ -1,28 +1,29 @@
 /* =============================================================
    Website Builder Wizard — app.js
-   Vanilla JS · no dependencies · step flow, live summary,
-   validation and lead delivery (Formspree / webhook / demo).
+   Gradient color editor · 200+ multi-select effects · page
+   structure · live summary · validated contact form · lead
+   delivery to the backend (or Formspree/webhook fallback).
    ============================================================= */
 (function () {
   "use strict";
 
   /* ---------------------------------------------------------
-     CONFIG — plug in your notification endpoint here.
-     • Formspree:  https://formspree.io/f/YOUR_FORM_ID
-       (free tier at formspree.io — creates a form that emails you)
-     • Webhook:    any URL that accepts a JSON POST
-       (Zapier, Make, n8n, Slack incoming webhook proxy, your API…)
-     Leave both empty to run in DEMO mode (console + localStorage).
+     CONFIG — optional extra delivery endpoints.
+     The primary endpoint is POST /api/lead (backend/serverless),
+     detected automatically when served over http(s).
      --------------------------------------------------------- */
   const CONFIG = {
-    formspreeEndpoint: "https://formspree.io/f/YOUR_FORM_ID",
-    webhookUrl: "",
+    formspreeEndpoint: "", // e.g. "https://formspree.io/f/xxxxxxx"
+    webhookUrl: "", // e.g. "https://hooks.example.com/leads"
     emailSubjectPrefix: "[Website Wizard]",
   };
 
+  const CONTACT_PHONE = "9095291686";
+
   /* ---------------- Data ---------------- */
 
-  const COLORS = [
+  // Named palette used to label stop colors with friendly names
+  const PALETTE = [
     { name: "Royal Blue", hex: "#3B82F6" },
     { name: "Indigo", hex: "#6366F1" },
     { name: "Violet", hex: "#8B5CF6" },
@@ -41,96 +42,85 @@
     { name: "Sky", hex: "#0EA5E9" },
     { name: "Slate Gray", hex: "#64748B" },
     { name: "Charcoal", hex: "#1F2937" },
-  ];
-
-  const EFFECTS = [
-    {
-      key: "fade-in",
-      label: "Fade In",
-      dotClass: "dot-fade-in",
-      animClass: "anim-fade-in",
-      desc: "Content gently appears from transparent to visible. Soft and distraction-free.",
-      tip: "Best for: page-load intros, text blocks and anywhere you want a calm, professional entrance.",
-    },
-    {
-      key: "slide-up",
-      label: "Slide Up",
-      dotClass: "dot-slide-up",
-      animClass: "anim-slide-up",
-      desc: "Elements rise into place from below while fading in — a classic modern reveal.",
-      tip: "Best for: hero sections, feature cards and scroll-triggered content reveals.",
-    },
-    {
-      key: "pulse",
-      label: "Pulse",
-      dotClass: "dot-pulse",
-      animClass: "anim-pulse",
-      desc: "A rhythmic breathing scale that continuously draws the eye.",
-      tip: "Best for: primary CTAs, sale badges, live indicators and ‘new’ labels.",
-    },
-    {
-      key: "zoom",
-      label: "Zoom",
-      dotClass: "dot-zoom",
-      animClass: "anim-zoom",
-      desc: "Starts small and scales up into focus with a soft fade.",
-      tip: "Best for: modals, popups, image galleries and product highlights.",
-    },
-    {
-      key: "bounce",
-      label: "Bounce",
-      dotClass: "dot-bounce",
-      animClass: "anim-bounce",
-      desc: "A playful, springy hop that feels energetic and fun.",
-      tip: "Best for: kids’ brands, gamified UI, notifications and celebratory moments.",
-    },
-    {
-      key: "hover-lift",
-      label: "Hover Lift",
-      dotClass: "dot-hover-lift",
-      animClass: "anim-hover-lift",
-      desc: "Not an entrance — the element floats up with a shadow when hovered.",
-      tip: "Best for: cards, buttons and nav items to signal they are interactive.",
-    },
+    { name: "White", hex: "#FFFFFF" },
+    { name: "Black", hex: "#000000" },
   ];
 
   const DEFAULT_PAGES = [
-    "Home",
-    "About Us",
-    "Services",
-    "Portfolio",
-    "Contact",
-    "FAQ",
-    "Blog",
-    "Gallery",
-    "Testimonials",
-    "Shop",
+    "Home", "About Us", "Services", "Portfolio", "Contact",
+    "FAQ", "Blog", "Gallery", "Testimonials", "Shop",
   ];
 
-  /* ---------------- State ---------------- */
+  const EFFECT_TIPS = {
+    entrance: "Best for: page-load intros and content entering the screen.",
+    attention: "Best for: CTAs, alerts and anything that must grab attention.",
+    loop: "Best for: ambient life - loaders, hero accents, idle states.",
+    hover: "Best for: cards, buttons and links to show they are clickable.",
+    text: "Best for: headlines, hero copy and key messages.",
+    background: "Best for: hero panels, section backdrops and empty states.",
+    shape: "Best for: decorative accents, avatars and icon holders.",
+    ui: "Best for: buttons, badges, progress bars and feedback states.",
+    threed: "Best for: product showcases, galleries and premium feels.",
+  };
 
+  /* ---------------- State ---------------- */
+  let stopIdSeq = 1;
   const state = {
     step: 1,
     maxStep: 1,
-    color: COLORS[0], // pre-selected for a delightful first paint
-    effect: null,
+    gradient: {
+      angle: 135,
+      stops: [
+        { id: stopIdSeq++, color: "#3B82F6", pos: 0 },
+        { id: stopIdSeq++, color: "#8B5CF6", pos: 100 },
+      ],
+      selectedId: 1,
+    },
+    effects: [], // array of effect ids (multi-select)
     pageCount: null,
-    pageNames: [], // e.g. ["Home", "About Us"]
-    customPages: [], // user-added names kept so chips persist
+    pageNames: [],
+    customPages: [],
     customNotes: "",
     sending: false,
+    fxSearch: "",
+    fxSort: "category",
+    fxCat: "all",
   };
 
   /* ---------------- Helpers ---------------- */
-
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
-  const hexToRgb = (hex) => {
+  function hexToRgb(hex) {
     const h = hex.replace("#", "");
-    const n = parseInt(h, 16);
+    const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  };
+  }
+
+  function normalizeHex(v) {
+    let h = String(v || "").trim().toUpperCase();
+    if (!h.startsWith("#")) h = "#" + h;
+    if (/^#[0-9A-F]{3}$/.test(h)) {
+      h = "#" + h.slice(1).split("").map((c) => c + c).join("");
+    }
+    return /^#[0-9A-F]{6}$/.test(h) ? h : null;
+  }
+
+  function nearestName(hex) {
+    const [r, g, b] = hexToRgb(hex);
+    let best = PALETTE[0];
+    let bestD = Infinity;
+    for (const p of PALETTE) {
+      const [pr, pg, pb] = hexToRgb(p.hex);
+      const d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    return best.name;
+  }
 
   const esc = (s) =>
     String(s).replace(/[&<>"']/g, (c) =>
@@ -138,7 +128,6 @@
     );
 
   /* ---------------- DOM refs ---------------- */
-
   const form = $("#wizard-form");
   const steps = $$(".step");
   const backBtn = $("#back-btn");
@@ -146,142 +135,389 @@
   const submitBtn = $("#submit-btn");
   const announcer = $("#step-announcer");
   const progressBar = $("#progress-list");
-  const colorGrid = $("#color-grid");
   const effectGrid = $("#effect-grid");
+  const liveStage = $("#live-preview-stage");
   const chipCloud = $("#chip-cloud");
   const chipInput = $("#custom-page-input");
-  const addPageBtn = $("#add-page-btn");
   const notesArea = $("#custom-notes");
   const notesCount = $("#notes-count");
   const chipCount = $("#chip-count");
   const pageNamesHint = $("#page-names-hint");
   const summaryOutput = $("#summary-output");
   const attachPreview = $("#attach-preview-body");
-  const livePreviewCard = $("#live-preview-card");
   const confirmation = $("#confirmation");
   const demoNote = $("#demo-note");
 
-  /* ---------------- Step 1 · Colors ---------------- */
+  /* =========================================================
+     STEP 1 · GRADIENT EDITOR
+     ========================================================= */
 
-  function renderColors() {
-    colorGrid.innerHTML = COLORS.map((c, i) => {
-      const checked = i === 0;
-      return `
-        <button
-          type="button"
-          class="color-swatch"
-          role="radio"
-          aria-checked="${checked}"
-          aria-label="${esc(c.name)} ${c.hex}"
-          data-hex="${c.hex}"
-          style="--swatch: ${c.hex}"
-        >
-          <span class="check-badge" aria-hidden="true">&#10003;</span>
-        </button>`;
-    }).join("");
+  const gradBarWrap = $("#grad-bar-wrap");
+  const gradBar = $("#grad-bar");
+  const gradStopsEl = $("#grad-stops");
+  const stopColorInput = $("#stop-color-input");
+  const stopHexInput = $("#stop-hex-input");
+  const stopPosInput = $("#stop-pos-input");
+  const stopIndexLabel = $("#stop-index-label");
+  const delStopBtn = $("#del-stop-btn");
+  const angleInput = $("#grad-angle");
+  const angleVal = $("#grad-angle-val");
 
-    colorGrid.addEventListener("click", (e) => {
-      const swatch = e.target.closest(".color-swatch");
-      if (!swatch) return;
-      selectColor(swatch.dataset.hex);
-    });
-
-    // Arrow-key navigation inside the radiogroup (WAI-ARIA pattern)
-    colorGrid.addEventListener("keydown", (e) => {
-      if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) return;
-      e.preventDefault();
-      const swatches = $$(".color-swatch", colorGrid);
-      const idx = swatches.indexOf(document.activeElement);
-      const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
-      const next = swatches[(idx + dir + swatches.length) % swatches.length];
-      next.focus();
-      selectColor(next.dataset.hex);
-    });
+  function sortedStops() {
+    return [...state.gradient.stops].sort((a, b) => a.pos - b.pos);
   }
 
-  function selectColor(hex) {
-    const color = COLORS.find((c) => c.hex === hex);
-    if (!color) return;
-    state.color = color;
+  function selectedStop() {
+    return state.gradient.stops.find((s) => s.id === state.gradient.selectedId) || state.gradient.stops[0];
+  }
 
-    $$(".color-swatch", colorGrid).forEach((s) =>
-      s.setAttribute("aria-checked", String(s.dataset.hex === hex))
-    );
+  function gradientCss() {
+    const stops = sortedStops()
+      .map((s) => `${s.color} ${Math.round(s.pos)}%`)
+      .join(", ");
+    return `linear-gradient(${state.gradient.angle}deg, ${stops})`;
+  }
 
-    const [r, g, b] = hexToRgb(hex);
-    const root = document.documentElement.style;
-    root.setProperty("--accent", hex);
-    root.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
-    root.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.16)`);
-    root.setProperty("--accent-glow", `rgba(${r}, ${g}, ${b}, 0.35)`);
+  function gradientNames() {
+    const stops = sortedStops();
+    const names = stops.map((s) => nearestName(s.color));
+    const uniq = names.filter((n, i) => names.indexOf(n) === i);
+    return uniq.length <= 1 ? uniq[0] || "" : `${uniq[0]} to ${uniq[uniq.length - 1]}`;
+  }
 
-    $("#preview-name").textContent = color.name;
-    $("#preview-hex").textContent = hex;
-    $("#preview-rgb").textContent = `rgb(${r}, ${g}, ${b})`;
+  function renderGradient() {
+    const css = gradientCss();
+
+    // Bar + page-wide preview
+    gradBar.style.background = css;
+    const preview = $("#grad-preview");
+    if (preview) preview.style.background = css;
+    $("#grad-css").textContent = css;
+    $("#grad-names").textContent = gradientNames();
+
+    // Accent follows the first stop so buttons/labels match the palette
+    const first = sortedStops()[0];
+    const [r, g, b] = hexToRgb(first.color);
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty("--accent", first.color);
+    rootStyle.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
+    rootStyle.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.16)`);
+    rootStyle.setProperty("--accent-glow", `rgba(${r}, ${g}, ${b}, 0.35)`);
+
+    // Stop markers
+    gradStopsEl.innerHTML = sortedStops()
+      .map((s, i) => `
+        <button
+          type="button"
+          class="grad-stop${s.id === state.gradient.selectedId ? " is-selected" : ""}"
+          style="left:${s.pos}%; --stop-color:${s.color}"
+          data-stop-id="${s.id}"
+          role="slider"
+          aria-label="Color stop ${i + 1}, ${s.color}, position ${Math.round(s.pos)} percent"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="${Math.round(s.pos)}"
+          aria-valuetext="${s.color} at ${Math.round(s.pos)} percent"
+          tabindex="${s.id === state.gradient.selectedId ? "0" : "-1"}"
+        ><span class="grad-stop-dot" aria-hidden="true"></span></button>`)
+      .join("");
+
+    // Panel values for the selected stop
+    const sel = selectedStop();
+    const idx = sortedStops().findIndex((s) => s.id === sel.id) + 1;
+    stopIndexLabel.textContent = String(idx);
+    stopColorInput.value = sel.color.toLowerCase();
+    if (document.activeElement !== stopHexInput) stopHexInput.value = sel.color;
+    if (document.activeElement !== stopPosInput) stopPosInput.value = String(Math.round(sel.pos));
+    delStopBtn.disabled = state.gradient.stops.length <= 2;
+    angleInput.value = String(state.gradient.angle);
+    angleVal.textContent = `${state.gradient.angle}\u00B0`;
 
     updateSummary();
   }
 
-  /* ---------------- Step 2 · Effects ---------------- */
+  function selectStop(id) {
+    state.gradient.selectedId = id;
+    renderGradient();
+  }
+
+  function stopAtPos(clientX) {
+    const rect = gradBar.getBoundingClientRect();
+    return clamp(Math.round(((clientX - rect.left) / rect.width) * 100), 0, 100);
+  }
+
+  function addStop(pos, color) {
+    const s = { id: stopIdSeq++, color: color || selectedStop().color, pos: clamp(pos, 0, 100) };
+    state.gradient.stops.push(s);
+    state.gradient.selectedId = s.id;
+    renderGradient();
+  }
+
+  function deleteStop(id) {
+    if (state.gradient.stops.length <= 2) return;
+    state.gradient.stops = state.gradient.stops.filter((s) => s.id !== id);
+    if (state.gradient.selectedId === id) {
+      state.gradient.selectedId = sortedStops()[0].id;
+    }
+    renderGradient();
+  }
+
+  function initGradient() {
+    // Click the track to add a stop there
+    gradBarWrap.addEventListener("click", (e) => {
+      if (e.target.closest(".grad-stop")) return;
+      addStop(stopAtPos(e.clientX), selectedStop().color);
+    });
+
+    // Markers: select + drag + keyboard
+    gradStopsEl.addEventListener("pointerdown", (e) => {
+      const marker = e.target.closest(".grad-stop");
+      if (!marker) return;
+      e.preventDefault();
+      const id = Number(marker.dataset.stopId);
+      selectStop(id);
+      marker.setPointerCapture(e.pointerId);
+
+      const move = (ev) => {
+        const s = state.gradient.stops.find((x) => x.id === id);
+        if (!s) return;
+        s.pos = stopAtPos(ev.clientX);
+        renderGradient();
+      };
+      const up = () => {
+        marker.releasePointerCapture?.(e.pointerId);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+
+    gradStopsEl.addEventListener("keydown", (e) => {
+      const marker = e.target.closest(".grad-stop");
+      if (!marker) return;
+      const id = Number(marker.dataset.stopId);
+      const s = state.gradient.stops.find((x) => x.id === id);
+      if (!s) return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        s.pos = clamp(s.pos + (e.key === "ArrowRight" ? 1 : -1), 0, 100);
+        selectStop(id);
+        const again = $(`.grad-stop[data-stop-id="${id}"]`, gradStopsEl);
+        again?.focus();
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteStop(id);
+      }
+    });
+
+    // Color picker (native spectrum pop-up) + hex + position + angle
+    stopColorInput.addEventListener("input", () => {
+      const s = selectedStop();
+      s.color = stopColorInput.value.toUpperCase();
+      renderGradient();
+    });
+
+    stopHexInput.addEventListener("input", () => {
+      const hex = normalizeHex(stopHexInput.value);
+      if (hex) {
+        selectedStop().color = hex;
+        renderGradient();
+      }
+    });
+    stopHexInput.addEventListener("blur", () => renderGradient());
+
+    stopPosInput.addEventListener("input", () => {
+      const v = clamp(Number(stopPosInput.value) || 0, 0, 100);
+      selectedStop().pos = v;
+      renderGradient();
+    });
+
+    angleInput.addEventListener("input", () => {
+      state.gradient.angle = Number(angleInput.value);
+      renderGradient();
+    });
+
+    delStopBtn.addEventListener("click", () => deleteStop(state.gradient.selectedId));
+  }
+
+  /* =========================================================
+     STEP 2 · EFFECTS (200+, sorted, multi-select)
+     ========================================================= */
+
+  const EFFECTS = () => window.WIZARD_EFFECTS || [];
+  const sampleHtml = (kind) => {
+    switch (kind) {
+      case "text": return '<span class="s-text">Sample Text</span>';
+      case "heading": return '<span class="s-heading">Heading</span>';
+      case "text-underline": return '<span class="s-text s-underline">Underlined</span>';
+      case "text-gradient": return '<span class="s-text s-gradient">Gradient Text</span>';
+      case "shape-square": return '<span class="s-square"></span>';
+      case "shape-triangle": return '<span class="s-triangle"></span>';
+      case "shape-blob": return '<span class="s-blob"></span>';
+      case "shape-ring": return '<span class="s-ring"></span>';
+      case "pill": return '<span class="s-pill">Button</span>';
+      case "card": return '<span class="s-card">Card</span>';
+      case "badge": return '<span class="s-badge">New</span>';
+      case "progress": return '<span class="s-progress"><span class="s-progress-bar"></span></span>';
+      case "bg": return '<span class="s-bg">Background</span>';
+      case "bg-stripes": return '<span class="s-bg s-stripes">Stripes</span>';
+      case "bg-radial": return '<span class="s-bg s-radial">Radial</span>';
+      default: return '<span class="s-circle"></span>';
+    }
+  };
+
+  function effectSample(effect, extraClass) {
+    return `<span class="fx-el ${effect.id} ${extraClass || ""}" data-fx="${effect.id}">${sampleHtml(effect.preview)}</span>`;
+  }
+
+  function visibleEffects() {
+    let list = EFFECTS();
+    const q = state.fxSearch.trim().toLowerCase();
+    if (state.fxCat !== "all") list = list.filter((e) => e.cat === state.fxCat);
+    if (q) list = list.filter((e) => e.name.toLowerCase().includes(q) || e.catLabel.toLowerCase().includes(q));
+    if (state.fxSort === "name") {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    } // "category" order is pre-sorted in effects.js
+    return list;
+  }
+
+  function renderCategories() {
+    const cats = window.WIZARD_EFFECT_CATS || [];
+    $("#fx-cats").innerHTML =
+      `<button type="button" class="fx-cat is-active" data-cat="all">All</button>` +
+      cats.map((c) => `<button type="button" class="fx-cat" data-cat="${c.key}">${c.label} (${c.count})</button>`).join("");
+  }
 
   function renderEffects() {
-    effectGrid.innerHTML = EFFECTS.map(
-      (fx) => `
-      <label class="effect-card">
-        <input type="radio" name="effect" value="${fx.key}" />
-        <span class="effect-card-top">
-          <span class="effect-card-title">${esc(fx.label)}</span>
-          <span class="effect-selected-tag">Selected</span>
-        </span>
-        <span class="effect-demo" aria-hidden="true">
-          <span class="effect-demo-dot ${fx.dotClass}"></span>
-        </span>
-        <span class="effect-card-desc">${esc(fx.desc)}</span>
-        <span class="effect-card-tip">${esc(fx.tip)}</span>
-      </label>`
-    ).join("");
+    const list = visibleEffects();
+    $("#fx-count").textContent = `${list.length} effect${list.length === 1 ? "" : "s"}`;
 
+    effectGrid.innerHTML = list
+      .map((e) => {
+        const checked = state.effects.includes(e.id);
+        return `
+        <label class="effect-card${checked ? " is-selected" : ""}" data-fx-card="${e.id}">
+          <input type="checkbox" value="${e.id}"${checked ? " checked" : ""} />
+          <span class="effect-card-top">
+            <span class="effect-card-title">${esc(e.name)}</span>
+            <span class="effect-card-tag">${e.catLabel}</span>
+          </span>
+          <span class="effect-demo preview-loop">
+            ${effectSample(e, checked ? "is-playing" : "")}
+          </span>
+          <span class="effect-card-tip">${EFFECT_TIPS[e.cat] || ""}</span>
+        </label>`;
+      })
+      .join("");
+
+    if (list.length === 0) {
+      effectGrid.innerHTML = `<p class="fx-empty">No effects match your search.</p>`;
+    }
+    updateSelectionUi();
+  }
+
+  function updateSelectionUi() {
+    const n = state.effects.length;
+    $("#fx-selected").textContent = n
+      ? `${n} selected: ${state.effects
+          .map((id) => (EFFECTS().find((e) => e.id === id) || {}).name)
+          .filter(Boolean)
+          .join(", ")}`
+      : "None selected yet";
+
+    // Rebuild the live stage with every selected effect
+    const selected = state.effects
+      .map((id) => EFFECTS().find((e) => e.id === id))
+      .filter(Boolean);
+
+    if (!selected.length) {
+      liveStage.innerHTML = `<p class="stage-empty">Select effects above to preview them here together.</p>`;
+      return;
+    }
+    liveStage.innerHTML = selected
+      .map(
+        (e) => `
+        <div class="stage-item">
+          ${effectSample(e, "is-playing")}
+          <span class="stage-label">${esc(e.name)}</span>
+        </div>`
+      )
+      .join("");
+  }
+
+  // Restart an animation when a card is hovered (fresh preview every time)
+  function playCardPreview(card) {
+    const el = card.querySelector(".fx-el");
+    if (!el) return;
+    el.classList.remove("is-playing");
+    void el.offsetWidth;
+    el.classList.add("is-playing");
+  }
+
+  function stopCardPreview(card) {
+    if (card.classList.contains("is-selected")) return;
+    card.querySelector(".fx-el")?.classList.remove("is-playing");
+  }
+
+  function initEffects() {
+    renderCategories();
+    renderEffects();
+
+    // Search / sort / category toolbar
+    $("#fx-search").addEventListener("input", (e) => {
+      state.fxSearch = e.target.value;
+      renderEffects();
+    });
+    $("#fx-sort").addEventListener("change", (e) => {
+      state.fxSort = e.target.value;
+      renderEffects();
+    });
+    $("#fx-cats").addEventListener("click", (e) => {
+      const btn = e.target.closest(".fx-cat");
+      if (!btn) return;
+      state.fxCat = btn.dataset.cat;
+      $$(".fx-cat").forEach((b) => b.classList.toggle("is-active", b === btn));
+      renderEffects();
+    });
+
+    // Multi-select toggling
     effectGrid.addEventListener("change", (e) => {
-      if (e.target.name !== "effect") return;
-      selectEffect(e.target.value, true);
-    });
-
-    // Hovering (or keyboard-focusing) a card plays a live preview
-    const previewOnHover = (e) => {
+      if (e.target.type !== "checkbox") return;
+      const id = e.target.value;
       const card = e.target.closest(".effect-card");
-      if (!card) return;
-      const input = $("input", card);
-      playPreview(input.value);
-    };
-    effectGrid.addEventListener("mouseover", previewOnHover);
-    effectGrid.addEventListener("focusin", previewOnHover);
+      if (e.target.checked) {
+        if (!state.effects.includes(id)) state.effects.push(id);
+        card.classList.add("is-selected");
+        playCardPreview(card);
+      } else {
+        state.effects = state.effects.filter((x) => x !== id);
+        card.classList.remove("is-selected");
+        stopCardPreview(card);
+      }
+      updateSelectionUi();
+      updateSummary();
+    });
 
-    // When the pointer leaves the grid, restore the selected effect
-    effectGrid.addEventListener("mouseleave", () => {
-      if (state.effect) playPreview(state.effect.key);
+    // Hover / focus plays a live preview
+    effectGrid.addEventListener("mouseover", (e) => {
+      const card = e.target.closest(".effect-card");
+      if (card) playCardPreview(card);
+    });
+    effectGrid.addEventListener("mouseout", (e) => {
+      const card = e.target.closest(".effect-card");
+      if (card && !e.relatedTarget?.closest?.(".effect-card")) stopCardPreview(card);
+      else if (card && !card.contains(e.relatedTarget)) stopCardPreview(card);
+    });
+    effectGrid.addEventListener("focusin", (e) => {
+      const card = e.target.closest(".effect-card");
+      if (card) playCardPreview(card);
     });
   }
 
-  function playPreview(effectKey) {
-    const fx = EFFECTS.find((f) => f.key === effectKey);
-    if (!fx) return;
-    EFFECTS.forEach((f) => livePreviewCard.classList.remove(f.animClass));
-    // Force reflow so the animation restarts every time
-    void livePreviewCard.offsetWidth;
-    livePreviewCard.classList.add(fx.animClass);
-  }
-
-  function selectEffect(effectKey, fromUser) {
-    const fx = EFFECTS.find((f) => f.key === effectKey);
-    if (!fx) return;
-    state.effect = fx;
-    const input = $(`input[value="${effectKey}"]`, effectGrid);
-    if (input) input.checked = true;
-    playPreview(effectKey);
-    if (fromUser) updateSummary();
-  }
-
-  /* ---------------- Step 3 · Structure ---------------- */
+  /* =========================================================
+     STEP 3 · STRUCTURE
+     ========================================================= */
 
   function renderChips() {
     const names = [...DEFAULT_PAGES, ...state.customPages];
@@ -294,9 +530,7 @@
           <input type="checkbox" value="${esc(name)}"${checked ? " checked" : ""} />
           <span>${esc(name)}${
           isCustom
-            ? `<button type="button" class="chip-x" data-remove="${esc(
-                name
-              )}" aria-label="Remove custom page ${esc(name)}">&times;</button>`
+            ? `<button type="button" class="chip-x" data-remove="${esc(name)}" aria-label="Remove custom page ${esc(name)}">&times;</button>`
             : ""
         }</span>
         </label>`;
@@ -308,7 +542,7 @@
   function updateChipCount() {
     const n = state.pageNames.length;
     chipCount.textContent = `${n} selected`;
-    const rec = { "1-page": "1 name", "3-5 pages": "3–5 names", "5+ pages": "5+ names" }[state.pageCount];
+    const rec = { "1-page": "1 name", "3-5 pages": "3-5 names", "5+ pages": "5+ names" }[state.pageCount];
     pageNamesHint.textContent = rec
       ? `Tip: a ${state.pageCount} site usually needs ${rec}. Pick common pages below or add your own.`
       : "Pick common pages below or add your own custom names.";
@@ -329,7 +563,6 @@
       (p) => p.toLowerCase() === clean.toLowerCase()
     );
     if (exists) {
-      // Already available — just make sure it is selected
       const input = $$("input", chipCloud).find(
         (el) => el.value.toLowerCase() === clean.toLowerCase()
       );
@@ -342,7 +575,6 @@
     }
     state.customPages.push(clean);
     renderChips();
-    // Check the freshly added chip
     const input = $$("input", chipCloud).find((el) => el.value === clean);
     if (input) {
       input.checked = true;
@@ -358,7 +590,6 @@
       if (e.target.type === "checkbox") togglePageName(e.target.value, e.target.checked);
     });
 
-    // Remove buttons for custom chips (preventDefault stops the label toggle)
     chipCloud.addEventListener("click", (e) => {
       const btn = e.target.closest(".chip-x");
       if (!btn) return;
@@ -371,7 +602,7 @@
       updateSummary();
     });
 
-    addPageBtn.addEventListener("click", () => addCustomPage(chipInput.value));
+    $("#add-page-btn").addEventListener("click", () => addCustomPage(chipInput.value));
     chipInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -379,12 +610,9 @@
       }
     });
 
-    // Page-count radios
     $$('input[name="pageCount"]').forEach((radio) => {
       radio.addEventListener("change", () => {
         state.pageCount = radio.value;
-
-        // Convenience: a 1-page site is usually one "Landing Page"
         if (radio.value === "1-page") {
           if (!state.customPages.includes("Landing Page")) {
             state.customPages.push("Landing Page");
@@ -396,7 +624,6 @@
           state.pageNames = ["Landing Page"];
           updateChipCount();
         }
-
         updateSummary();
       });
     });
@@ -408,7 +635,23 @@
     });
   }
 
-  /* ---------------- Step 4 · Summary ---------------- */
+  /* =========================================================
+     STEP 4 · SUMMARY (exact structured format)
+     ========================================================= */
+
+  function buildColourLine() {
+    const css = gradientCss();
+    const names = gradientNames();
+    return names ? `${css} (${names})` : css;
+  }
+
+  function buildEffectLine() {
+    if (!state.effects.length) return "not selected yet";
+    return state.effects
+      .map((id) => (EFFECTS().find((e) => e.id === id) || {}).name)
+      .filter(Boolean)
+      .join(", ");
+  }
 
   function buildSpecLine() {
     const pages = state.pageCount || "pages TBC";
@@ -418,13 +661,9 @@
   }
 
   function buildSummary() {
-    const color = state.color
-      ? `${state.color.hex} (${state.color.name})`
-      : "not selected yet";
-    const effect = state.effect ? state.effect.label : "not selected yet";
     return [
-      `colour:${color}`,
-      `effect:${effect}`,
+      `colour:${buildColourLine()}`,
+      `effect:${buildEffectLine()}`,
       `specifications:${buildSpecLine()}`,
     ].join("\n");
   }
@@ -434,14 +673,14 @@
     summaryOutput.textContent = text;
     attachPreview.textContent = text;
 
-    $("#recap-color").textContent = state.color
-      ? `${state.color.name} · ${state.color.hex}`
+    const recapSwatch = $("#recap-swatch");
+    if (recapSwatch) recapSwatch.style.background = gradientCss();
+    $("#recap-color").textContent = gradientNames();
+    $("#recap-effect").textContent = state.effects.length
+      ? `${state.effects.length} effect${state.effects.length === 1 ? "" : "s"} selected`
       : "—";
-    $("#recap-effect").textContent = state.effect ? state.effect.label : "—";
     $("#recap-specs").textContent = state.pageCount
-      ? `${state.pageCount} · ${state.pageNames.length} page name${
-          state.pageNames.length === 1 ? "" : "s"
-        }`
+      ? `${state.pageCount} · ${state.pageNames.length} page name${state.pageNames.length === 1 ? "" : "s"}`
       : "—";
   }
 
@@ -452,7 +691,6 @@
       try {
         await navigator.clipboard.writeText(text);
       } catch {
-        // Fallback for non-secure contexts
         const ta = document.createElement("textarea");
         ta.value = text;
         ta.style.position = "fixed";
@@ -468,7 +706,9 @@
     });
   }
 
-  /* ---------------- Step navigation ---------------- */
+  /* =========================================================
+     STEP NAVIGATION
+     ========================================================= */
 
   function goToStep(n, { focus = true } = {}) {
     state.step = n;
@@ -494,16 +734,13 @@
     nextBtn.hidden = n === 5;
     submitBtn.hidden = n !== 5;
 
-    if (n === 4) updateSummary();
-    if (n === 5) {
-      updateSummary();
-      validateContact(false); // refresh submit button state without shouting errors
-    }
+    if (n === 4 || n === 5) updateSummary();
+    if (n === 5) validateContact(false);
 
     const titles = [
       "",
-      "Step 1: Pick your brand color",
-      "Step 2: Choose an animation effect",
+      "Step 1: Build your color gradient",
+      "Step 2: Choose your animation effects",
       "Step 3: Website structure and specs",
       "Step 4: Your specification summary",
       "Step 5: Contact details",
@@ -520,7 +757,9 @@
     }
   }
 
-  /* ---------------- Validation ---------------- */
+  /* =========================================================
+     VALIDATION
+     ========================================================= */
 
   function showFormAlert(message) {
     clearFormAlert();
@@ -532,29 +771,25 @@
   }
 
   function clearFormAlert() {
-    const existing = $(".form-alert");
-    if (existing) existing.remove();
+    $(".form-alert")?.remove();
   }
 
   function validateStep(n) {
     clearFormAlert();
-    if (n === 2 && !state.effect) {
-      showFormAlert("Please select an animation effect to continue.");
-      const first = $("input", effectGrid);
-      if (first) first.focus();
+    if (n === 2 && state.effects.length === 0) {
+      showFormAlert("Select at least one animation effect to continue.");
+      $(".effect-card input")?.focus();
       return false;
     }
     if (n === 3) {
       if (!state.pageCount) {
         showFormAlert("Please choose how many pages your website needs.");
-        const first = $('input[name="pageCount"]');
-        if (first) first.focus();
+        $('input[name="pageCount"]')?.focus();
         return false;
       }
       if (state.pageNames.length === 0) {
         showFormAlert("Please select or add at least one page name.");
-        const first = $("input", chipCloud);
-        if (first) first.focus();
+        $("input", chipCloud)?.focus();
         return false;
       }
     }
@@ -581,34 +816,30 @@
     const email = $("#email");
     let ok = true;
 
-    // Full name
     let msg = "";
     if (!name.value.trim()) msg = showErrors ? "Please enter your full name." : "";
     else if (name.value.trim().length < 2) msg = showErrors ? "Name looks too short." : "";
     setFieldError(name, $("#full-name-error"), msg);
     if (msg) ok = false;
 
-    // Purpose
     msg = "";
     if (!purpose.value.trim()) msg = showErrors ? "Tell us briefly why you need the website." : "";
     setFieldError(purpose, $("#purpose-error"), msg);
     if (msg) ok = false;
 
-    // Phone — 7–15 digits, +, spaces, dashes, brackets allowed
     msg = "";
     const digits = phone.value.replace(/\D/g, "");
     if (!phone.value.trim()) msg = showErrors ? "Please enter a phone number." : "";
     else if (!PHONE_RE.test(phone.value.trim()) || digits.length < 7 || digits.length > 15)
       msg = showErrors
-        ? "Enter a valid phone number (7–15 digits; +, spaces, dashes and brackets are OK)."
+        ? "Enter a valid phone number (7-15 digits; +, spaces, dashes and brackets are OK)."
         : "";
     setFieldError(phone, $("#phone-error"), msg);
     if (msg) ok = false;
 
-    // Email
     msg = "";
     if (!email.value.trim()) msg = showErrors ? "Please enter your email address." : "";
-    else if (!EMAIL_RE.test(email.value.trim())) msg = showErrors ? "That email doesn’t look valid." : "";
+    else if (!EMAIL_RE.test(email.value.trim())) msg = showErrors ? "That email doesn't look valid." : "";
     setFieldError(email, $("#email-error"), msg);
     if (msg) ok = false;
 
@@ -622,25 +853,25 @@
       el.addEventListener("blur", () => validateContact(true));
       el.addEventListener("input", () => {
         if (el.getAttribute("aria-invalid") === "true") validateContact(true);
-        else submitBtn.disabled = false; // keep it enabled while typing cleanly
+        else submitBtn.disabled = false;
       });
     });
   }
 
-  /* ---------------- Submission ---------------- */
+  /* =========================================================
+     SUBMISSION
+     ========================================================= */
 
   function buildPayload() {
     return {
-      _subject: `${CONFIG.emailSubjectPrefix} New website request${
-        state.color ? " · " + state.color.name : ""
-      }`,
+      _subject: `${CONFIG.emailSubjectPrefix} New website request`,
       fullName: $("#full-name").value.trim(),
       purpose: $("#purpose").value.trim(),
       phone: $("#phone").value.trim(),
       email: $("#email").value.trim(),
       summary: buildSummary(),
-      colour: state.color ? `${state.color.hex} (${state.color.name})` : "",
-      effect: state.effect ? state.effect.label : "",
+      colour: buildColourLine(),
+      effect: buildEffectLine(),
       specifications: buildSpecLine(),
       submittedAt: new Date().toISOString(),
     };
@@ -648,14 +879,10 @@
 
   function endpoints() {
     const list = [];
-    // Local/self-hosted backend (freelance/server) — used when served over http(s)
     if (window.location.protocol.startsWith("http")) {
       list.push({ url: "/api/lead", kind: "backend", allowFallback: true });
     }
-    if (
-      CONFIG.formspreeEndpoint &&
-      !CONFIG.formspreeEndpoint.includes("YOUR_FORM_ID")
-    ) {
+    if (CONFIG.formspreeEndpoint && !CONFIG.formspreeEndpoint.includes("YOUR_FORM_ID")) {
       list.push({ url: CONFIG.formspreeEndpoint, kind: "formspree" });
     }
     if (CONFIG.webhookUrl) list.push({ url: CONFIG.webhookUrl, kind: "webhook" });
@@ -664,7 +891,7 @@
 
   function demoCapture(payload, reason) {
     console.info(
-      "%c[Website Wizard] DEMO MODE — lead captured locally only. " + reason,
+      "%c[Website Wizard] DEMO MODE - lead captured locally only. " + reason,
       "color:#f59e0b;font-weight:bold",
       payload
     );
@@ -673,25 +900,20 @@
       archive.push(payload);
       localStorage.setItem("wizardLeads", JSON.stringify(archive));
     } catch {
-      /* storage unavailable — ignore */
+      /* storage unavailable */
     }
     return { demo: true };
   }
 
   async function sendRequest(payload) {
     const targets = endpoints();
-
-    // Nothing configured at all
     if (targets.length === 0) return demoCapture(payload, "No endpoint configured.");
 
     const results = await Promise.allSettled(
       targets.map((t) =>
         fetch(t.url, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify(payload),
         }).then(async (res) => {
           if (!res.ok) {
@@ -713,9 +935,6 @@
       return { demo: false };
     }
 
-    // Everything failed. If every target allows fallback and every failure was
-    // network-level (server not running / offline) → demo mode instead of
-    // blocking the user with an error.
     const onlyFallbackTargets = targets.every((t) => t.allowFallback);
     const allNetworkErrors = failed.every((r) => !r.reason?.http);
     if (onlyFallbackTargets && allNetworkErrors) {
@@ -731,14 +950,12 @@
     if (state.sending) return;
 
     if (state.step !== 5) {
-      // Enter key pressed on an earlier step — behave like "Next"
       nextBtn.click();
       return;
     }
 
     if (!validateContact(true)) {
-      const invalid = $('[aria-invalid="true"]');
-      if (invalid) invalid.focus();
+      $('[aria-invalid="true"]')?.focus();
       return;
     }
 
@@ -752,19 +969,18 @@
       const payload = buildPayload();
       const result = await sendRequest(payload);
 
-      // Confirmation screen
       form.hidden = true;
       confirmation.hidden = false;
       $("#confirmation-spec").textContent = payload.summary;
-      $("#confirmation-sub").textContent = result.demo
-        ? "Demo mode is on — your request was captured locally (see the console) but not emailed yet."
-        : "A copy of your specification has been sent to our team.";
       $("#confirmation-title").focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: "smooth" });
+      if (result.demo) console.info("[Website Wizard] Shown confirmation in demo mode.");
     } catch (err) {
       console.error("[Website Wizard] Submission failed:", err);
       showFormAlert(
-        "Sorry — we couldn’t send your request right now. Please check your connection and try again, or email us directly."
+        "Sorry - we could not send your request right now. Please check your connection and try again, or call " +
+          CONTACT_PHONE +
+          "."
       );
     } finally {
       state.sending = false;
@@ -779,15 +995,30 @@
       form.reset();
       state.step = 1;
       state.maxStep = 1;
-      state.effect = null;
+      state.effects = [];
       state.pageCount = null;
       state.pageNames = [];
       state.customPages = [];
       state.customNotes = "";
+      state.fxSearch = "";
+      state.fxCat = "all";
+      state.fxSort = "category";
       notesCount.textContent = "0";
-      EFFECTS.forEach((f) => livePreviewCard.classList.remove(f.animClass));
+      $("#fx-search").value = "";
+      $("#fx-sort").value = "category";
+      $$(".fx-cat").forEach((b) => b.classList.toggle("is-active", b.dataset.cat === "all"));
+      state.gradient = {
+        angle: 135,
+        stops: [
+          { id: stopIdSeq++, color: "#3B82F6", pos: 0 },
+          { id: stopIdSeq++, color: "#8B5CF6", pos: 100 },
+        ],
+        selectedId: null,
+      };
+      state.gradient.selectedId = state.gradient.stops[0].id;
+      renderGradient();
       renderChips();
-      selectColor(COLORS[0].hex);
+      renderEffects();
       updateSummary();
       confirmation.hidden = true;
       form.hidden = false;
@@ -796,30 +1027,24 @@
   }
 
   /* ---------------- Boot ---------------- */
-
   function init() {
-    $("#year").textContent = String(new Date().getFullYear());
-
-    renderColors();
-    renderEffects();
+    initGradient();
+    renderGradient();
+    initEffects();
     initStructure();
     initSummary();
     initContact();
     initRestart();
 
-    selectColor(COLORS[0].hex);
     updateSummary();
 
     nextBtn.addEventListener("click", () => {
       if (!validateStep(state.step)) return;
       goToStep(state.step + 1);
     });
-
     backBtn.addEventListener("click", () => goToStep(state.step - 1));
-
     form.addEventListener("submit", handleSubmit);
 
-    // Progress dots + summary "edit" links
     document.addEventListener("click", (e) => {
       const target = e.target.closest("[data-goto]");
       if (!target || target.disabled) return;
@@ -827,7 +1052,6 @@
       if (n >= 1 && n <= state.maxStep && n !== state.step) goToStep(n);
     });
 
-    // Show the demo-mode hint on the contact step
     if (endpoints().length === 0) demoNote.hidden = false;
   }
 
