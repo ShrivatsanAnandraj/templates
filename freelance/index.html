@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Configure your custom website build: pick a brand color, animation style and page structure, then send your request to our team." />
+  <meta name="color-scheme" content="dark" />
+  <title>Website Builder Wizard — Configure Your Custom Website</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127912;</text></svg>" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Skip link for keyboard users -->
+  <a class="skip-link" href="#wizard-heading">Skip to main content</a>
+
+  <div class="app" id="app">
+    <!-- ============ Header ============ -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Nova<span class="brand-accent">Build</span></span>
+      </div>
+      <p class="app-tagline">Configure your dream website in 5 quick steps</p>
+    </header>
+
+    <!-- ============ Progress indicator ============ -->
+    <nav class="progress" aria-label="Wizard progress">
+      <ol class="progress-list" id="progress-list">
+        <li class="progress-item is-active" data-goto="1">
+          <button type="button" class="progress-dot" aria-current="step">
+            <span class="progress-num" aria-hidden="true">1</span>
+            <span class="progress-label">Color</span>
+          </button>
+        </li>
+        <li class="progress-item" data-goto="2">
+          <button type="button" class="progress-dot">
+            <span class="progress-num" aria-hidden="true">2</span>
+            <span class="progress-label">Animation</span>
+          </button>
+        </li>
+        <li class="progress-item" data-goto="3">
+          <button type="button" class="progress-dot">
+            <span class="progress-num" aria-hidden="true">3</span>
+            <span class="progress-label">Structure</span>
+          </button>
+        </li>
+        <li class="progress-item" data-goto="4">
+          <button type="button" class="progress-dot">
+            <span class="progress-num" aria-hidden="true">4</span>
+            <span class="progress-label">Summary</span>
+          </button>
+        </li>
+        <li class="progress-item" data-goto="5">
+          <button type="button" class="progress-dot">
+            <span class="progress-num" aria-hidden="true">5</span>
+            <span class="progress-label">Contact</span>
+          </button>
+        </li>
+      </ol>
+    </nav>
+
+    <main class="main">
+      <h1 id="wizard-heading" class="visually-hidden" tabindex="-1">Website configuration wizard</h1>
+
+      <form id="wizard-form" class="wizard-form" novalidate autocomplete="on">
+        <!-- Live region announces step changes to screen readers -->
+        <p class="visually-hidden" id="step-announcer" role="status" aria-live="polite"></p>
+
+        <!-- ================= STEP 1 · COLOR ================= -->
+        <section class="step is-active" data-step="1" aria-labelledby="step1-title">
+          <div class="step-header">
+            <span class="step-kicker">Step 1 of 5</span>
+            <h2 class="step-title" id="step1-title">Pick your brand color</h2>
+            <p class="step-desc">
+              Choose a color that matches your brand. It previews instantly across this page
+              and is saved with its exact hex code.
+            </p>
+          </div>
+
+          <div class="color-layout">
+            <fieldset class="color-fieldset">
+              <legend class="visually-hidden">Brand color palette</legend>
+              <div class="color-grid" id="color-grid" role="radiogroup" aria-label="Brand color palette">
+                <!-- Color swatches injected by JS -->
+              </div>
+            </fieldset>
+
+            <aside class="color-preview-card" aria-live="polite">
+              <div class="preview-swatch" id="preview-swatch"></div>
+              <div class="preview-meta">
+                <p class="preview-name" id="preview-name">Royal Blue</p>
+                <p class="preview-hex" id="preview-hex">#3B82F6</p>
+                <p class="preview-rgb" id="preview-rgb">rgb(59, 130, 246)</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- ================= STEP 2 · ANIMATION ================= -->
+        <section class="step" data-step="2" aria-labelledby="step2-title" hidden>
+          <div class="step-header">
+            <span class="step-kicker">Step 2 of 5</span>
+            <h2 class="step-title" id="step2-title">Choose an animation effect</h2>
+            <p class="step-desc">
+              Hover over a card to preview it live, click to select. Each effect comes with a
+              tip on where it works best.
+            </p>
+          </div>
+
+          <div class="effect-grid" id="effect-grid" role="radiogroup" aria-label="Animation effects">
+            <!-- Effect cards injected by JS -->
+          </div>
+
+          <!-- Big live preview of the currently selected effect -->
+          <div class="live-preview" aria-live="polite">
+            <p class="live-preview-label">Live preview</p>
+            <div class="live-preview-stage">
+              <div class="live-preview-card" id="live-preview-card">
+                <span class="live-preview-badge">Your content</span>
+                <p class="live-preview-title">A beautiful, animated website</p>
+                <p class="live-preview-text">This is how your sections could enter the screen.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= STEP 3 · SPECIFICATIONS ================= -->
+        <section class="step" data-step="3" aria-labelledby="step3-title" hidden>
+          <div class="step-header">
+            <span class="step-kicker">Step 3 of 5</span>
+            <h2 class="step-title" id="step3-title">Website structure &amp; specs</h2>
+            <p class="step-desc">Tell us how big your site is and which pages it needs.</p>
+          </div>
+
+          <fieldset class="block-fieldset">
+            <legend class="block-legend">How many pages do you need?</legend>
+            <div class="pagecount-grid" id="pagecount-grid" role="radiogroup" aria-label="Number of pages">
+              <label class="option-card">
+                <input type="radio" name="pageCount" value="1-page" />
+                <span class="option-card-body">
+                  <span class="option-card-title">1-page</span>
+                  <span class="option-card-desc">A single scrolling landing page — perfect for launches, portfolios and events.</span>
+                </span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="pageCount" value="3-5 pages" />
+                <span class="option-card-body">
+                  <span class="option-card-title">3–5 pages</span>
+                  <span class="option-card-desc">The classic small-business site: home, about, services and contact.</span>
+                </span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="pageCount" value="5+ pages" />
+                <span class="option-card-body">
+                  <span class="option-card-title">5+ pages</span>
+                  <span class="option-card-desc">Content-rich sites with blogs, portfolios, shops or documentation.</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="block">
+            <div class="block-head">
+              <span class="block-legend" id="page-names-label">Name your pages</span>
+              <span class="chip-count" id="chip-count" aria-live="polite">0 selected</span>
+            </div>
+            <p class="block-hint" id="page-names-hint">Pick common pages below or add your own custom names.</p>
+
+            <div class="chip-cloud" id="chip-cloud" role="group" aria-labelledby="page-names-label">
+              <!-- Page-name chips injected by JS -->
+            </div>
+
+            <div class="chip-adder" id="chip-adder">
+              <label class="visually-hidden" for="custom-page-input">Add a custom page name</label>
+              <input
+                type="text"
+                id="custom-page-input"
+                class="text-input"
+                placeholder="e.g. Case Studies, Booking, Shop…"
+                maxlength="40"
+                autocomplete="off"
+              />
+              <button type="button" class="btn btn-ghost" id="add-page-btn">Add page</button>
+            </div>
+          </div>
+
+          <div class="block">
+            <label class="block-legend" for="custom-notes">Custom requirements &amp; special features</label>
+            <p class="block-hint">Anything unique — e-commerce, booking system, dark mode, SEO goals, brand guidelines…</p>
+            <textarea
+              id="custom-notes"
+              class="text-area"
+              rows="4"
+              maxlength="1000"
+              placeholder="e.g. Needs a Stripe-powered shop, bilingual (EN/FR) content, and a blog with categories."
+            ></textarea>
+            <p class="char-count"><span id="notes-count">0</span>/1000</p>
+          </div>
+        </section>
+
+        <!-- ================= STEP 4 · SUMMARY ================= -->
+        <section class="step" data-step="4" aria-labelledby="step4-title" hidden>
+          <div class="step-header">
+            <span class="step-kicker">Step 4 of 5</span>
+            <h2 class="step-title" id="step4-title">Your specification summary</h2>
+            <p class="step-desc">
+              This exact format is what our team receives. It updates live as you change your choices.
+            </p>
+          </div>
+
+          <div class="summary-wrap">
+            <div class="summary-card">
+              <div class="summary-card-bar">
+                <span class="summary-card-title">website-spec.txt</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="copy-summary-btn">Copy</button>
+              </div>
+              <pre class="summary-output" id="summary-output" aria-live="polite" tabindex="0"></pre>
+            </div>
+
+            <ul class="summary-visual" id="summary-visual" aria-label="Visual recap of your choices">
+              <li class="summary-visual-item">
+                <span class="summary-visual-swatch" id="recap-swatch"></span>
+                <span class="summary-visual-text" id="recap-color">—</span>
+              </li>
+              <li class="summary-visual-item">
+                <span class="summary-visual-icon" aria-hidden="true">&#10024;</span>
+                <span class="summary-visual-text" id="recap-effect">—</span>
+              </li>
+              <li class="summary-visual-item">
+                <span class="summary-visual-icon" aria-hidden="true">&#128441;&#65039;</span>
+                <span class="summary-visual-text" id="recap-specs">—</span>
+              </li>
+            </ul>
+
+            <p class="summary-back-hint">
+              Need to tweak something?
+              <button type="button" class="link-btn" data-goto="1">Edit color</button> ·
+              <button type="button" class="link-btn" data-goto="2">Edit animation</button> ·
+              <button type="button" class="link-btn" data-goto="3">Edit structure</button>
+            </p>
+          </div>
+        </section>
+
+        <!-- ================= STEP 5 · CONTACT ================= -->
+        <section class="step" data-step="5" aria-labelledby="step5-title" hidden>
+          <div class="step-header">
+            <span class="step-kicker">Step 5 of 5</span>
+            <h2 class="step-title" id="step5-title">Where can we reach you?</h2>
+            <p class="step-desc">
+              Your contact details are bundled with the specification above and sent to our team.
+            </p>
+          </div>
+
+          <div class="contact-grid">
+            <div class="field">
+              <label class="field-label" for="full-name">Full name <span class="req" aria-hidden="true">*</span></label>
+              <input
+                type="text"
+                id="full-name"
+                name="fullName"
+                class="text-input"
+                autocomplete="name"
+                required
+                aria-describedby="full-name-error"
+                placeholder="Ada Lovelace"
+              />
+              <p class="field-error" id="full-name-error" role="alert"></p>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="purpose">Purpose — why do you need this website? <span class="req" aria-hidden="true">*</span></label>
+              <textarea
+                id="purpose"
+                name="purpose"
+                class="text-area"
+                rows="3"
+                maxlength="500"
+                required
+                aria-describedby="purpose-error"
+                placeholder="e.g. I run a bakery and need online orders plus a menu showcase."
+              ></textarea>
+              <p class="field-error" id="purpose-error" role="alert"></p>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="phone">Phone number <span class="req" aria-hidden="true">*</span></label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                class="text-input"
+                autocomplete="tel"
+                inputmode="tel"
+                required
+                aria-describedby="phone-hint phone-error"
+                placeholder="+1 (555) 123-4567"
+              />
+              <p class="field-hint" id="phone-hint">7–15 digits. +, spaces, dashes and brackets are fine.</p>
+              <p class="field-error" id="phone-error" role="alert"></p>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="email">Email address <span class="req" aria-hidden="true">*</span></label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                class="text-input"
+                autocomplete="email"
+                inputmode="email"
+                required
+                aria-describedby="email-error"
+                placeholder="ada@example.com"
+              />
+              <p class="field-error" id="email-error" role="alert"></p>
+            </div>
+          </div>
+
+          <!-- Read-only preview of what will be sent -->
+          <div class="attach-preview">
+            <p class="attach-preview-label">Attached specification</p>
+            <pre class="attach-preview-body" id="attach-preview-body"></pre>
+          </div>
+
+          <p class="demo-note" id="demo-note" hidden>
+            <strong>Demo mode:</strong> no email endpoint is configured yet. Open
+            <code>js/app.js</code> and set your Formspree or webhook URL in <code>CONFIG</code> to enable live notifications.
+          </p>
+        </section>
+
+        <!-- ============ Wizard navigation ============ -->
+        <div class="wizard-nav" id="wizard-nav">
+          <button type="button" class="btn btn-ghost" id="back-btn" hidden>
+            <span aria-hidden="true">&larr;</span> Back
+          </button>
+          <button type="button" class="btn btn-primary" id="next-btn">
+            Next <span aria-hidden="true">&rarr;</span>
+          </button>
+          <button type="submit" class="btn btn-primary" id="submit-btn" hidden disabled>
+            <span class="btn-label">Send my request</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+
+      <!-- ================= CONFIRMATION SCREEN ================= -->
+      <section class="confirmation" id="confirmation" hidden aria-labelledby="confirmation-title">
+        <div class="confirmation-inner">
+          <div class="confirmation-check" aria-hidden="true">
+            <svg viewBox="0 0 52 52" class="check-svg">
+              <circle class="check-circle" cx="26" cy="26" r="25" fill="none" />
+              <path class="check-mark" fill="none" d="M14.5 27.5l7.5 7.5 15.5-15.5" />
+            </svg>
+          </div>
+          <h2 class="confirmation-title" id="confirmation-title" tabindex="-1">
+            Thank you! Our team will call you shortly to verify your details and discuss your custom website build before we begin.
+          </h2>
+          <p class="confirmation-sub" id="confirmation-sub">
+            A copy of your specification has been sent to our team.
+          </p>
+          <pre class="confirmation-spec" id="confirmation-spec"></pre>
+          <button type="button" class="btn btn-ghost" id="restart-btn">Start a new request</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>&copy; <span id="year"></span> NovaBuild Studio · Your spec stays private until you send it.</p>
+    </footer>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
