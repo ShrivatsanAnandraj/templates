@@ -55,6 +55,9 @@ function validateLead(b) {
   return errors;
 }
 
+// All notifications are delivered to this address (override with NOTIFY_EMAIL)
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "shrivatsan.anandraj@gmail.com";
+
 async function sendEmail(payload) {
   const subject = payload._subject || "[Website Wizard] New website request";
   const text = [
@@ -79,7 +82,7 @@ async function sendEmail(payload) {
     });
     await tx.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: process.env.SMTP_USER,
+      to: NOTIFY_EMAIL,
       subject,
       text,
     });
@@ -96,7 +99,7 @@ async function sendEmail(payload) {
       },
       body: JSON.stringify({
         from: process.env.RESEND_FROM || "Website Wizard <onboarding@resend.dev>",
-        to: [process.env.RESEND_TO || process.env.SMTP_USER || "you@example.com"],
+        to: [NOTIFY_EMAIL],
         subject,
         text,
       }),

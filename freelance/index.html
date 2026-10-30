@@ -60,78 +60,55 @@
       <form id="wizard-form" class="wizard-form" novalidate autocomplete="on">
         <p class="visually-hidden" id="step-announcer" role="status" aria-live="polite"></p>
 
-        <!-- ================= STEP 1 · GRADIENT COLOR ================= -->
+        <!-- ================= STEP 1 · MAIN COLOR THEME ================= -->
         <section class="step is-active" data-step="1" aria-labelledby="step1-title">
           <div class="step-header">
             <span class="step-kicker">Step 1 of 5</span>
-            <h2 class="step-title" id="step1-title">Build your color gradient</h2>
+            <h2 class="step-title" id="step1-title">Choose your main color theme</h2>
             <p class="step-desc">
-              Click the gradient bar to add a color stop, drag the stops to move them,
-              then pick each stop's color. The whole site previews your gradient live.
+              Pick a color that matches your brand. It previews instantly across the
+              whole page and is saved with its exact hex code.
             </p>
           </div>
 
-          <div class="grad-layout">
-            <!-- Gradient editor: bar + stop markers -->
-            <div class="grad-editor">
-              <div
-                class="grad-bar-wrap"
-                id="grad-bar-wrap"
-                role="group"
-                aria-label="Gradient bar. Click to add a color stop."
-              >
-                <div class="grad-bar" id="grad-bar"></div>
-                <div class="grad-stops" id="grad-stops"></div>
-              </div>
-              <p class="grad-hint">
-                Click the bar to add a stop. Drag stops to move them. Arrow keys nudge the
-                focused stop; press Delete to remove it.
-              </p>
+          <div class="color-layout">
+            <div class="color-main">
+              <fieldset class="color-fieldset">
+                <legend class="visually-hidden">Color theme palette</legend>
+                <div class="color-grid" id="color-grid" role="radiogroup" aria-label="Color theme palette">
+                  <!-- Color swatches injected by JS -->
+                </div>
+              </fieldset>
 
-              <!-- Color picker panel for the selected stop -->
-              <div class="grad-panel" aria-label="Color picker for selected stop">
-                <div class="grad-panel-row">
-                  <span class="grad-panel-label">Editing stop <strong id="stop-index-label">1</strong></span>
-                  <button type="button" class="btn btn-ghost btn-sm" id="del-stop-btn">Delete stop</button>
-                </div>
-                <div class="grad-panel-row">
-                  <div class="picker-group">
-                    <label class="picker-label" for="stop-color-input">Color picker</label>
-                    <input type="color" id="stop-color-input" class="color-picker" value="#3b82f6" />
-                  </div>
-                  <div class="picker-group">
-                    <label class="picker-label" for="stop-hex-input">Hex</label>
-                    <input type="text" id="stop-hex-input" class="text-input hex-input" value="#3B82F6" maxlength="7" spellcheck="false" />
-                  </div>
-                  <div class="picker-group">
-                    <label class="picker-label" for="stop-pos-input">Position</label>
-                    <div class="pos-group">
-                      <input type="number" id="stop-pos-input" class="text-input pos-input" min="0" max="100" value="0" />
-                      <span class="pos-suffix">%</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="grad-panel-row">
-                  <label class="picker-label" for="grad-angle">Gradient angle</label>
-                  <input type="range" id="grad-angle" min="0" max="360" value="135" class="range-input" />
-                  <span class="range-value" id="grad-angle-val">135&deg;</span>
+              <div class="custom-color">
+                <span class="custom-color-label" id="custom-color-label">Or pick your own color</span>
+                <div class="custom-color-row">
+                  <input
+                    type="color"
+                    id="custom-color-input"
+                    class="color-picker"
+                    value="#3b82f6"
+                    aria-labelledby="custom-color-label"
+                  />
+                  <label class="visually-hidden" for="custom-hex-input">Custom color hex code</label>
+                  <input
+                    type="text"
+                    id="custom-hex-input"
+                    class="text-input hex-input"
+                    value="#3B82F6"
+                    maxlength="7"
+                    spellcheck="false"
+                  />
                 </div>
               </div>
             </div>
 
-            <!-- Live theme preview -->
-            <aside class="grad-preview-card" aria-live="polite">
-              <div class="grad-preview" id="grad-preview">
-                <div class="grad-preview-inner">
-                  <span class="grad-preview-pill" id="grad-preview-pill">Preview</span>
-                  <p class="grad-preview-heading" id="grad-preview-heading">Your website, your colors</p>
-                  <p class="grad-preview-text">Text and buttons inherit this palette automatically.</p>
-                  <button type="button" class="grad-preview-btn" tabindex="-1">Get started</button>
-                </div>
-              </div>
-              <div class="grad-preview-meta">
-                <p class="grad-css" id="grad-css"></p>
-                <p class="grad-names" id="grad-names"></p>
+            <aside class="color-preview-card" aria-live="polite">
+              <div class="preview-swatch" id="preview-swatch"></div>
+              <div class="preview-meta">
+                <p class="preview-name" id="preview-name">Royal Blue</p>
+                <p class="preview-hex" id="preview-hex">#3B82F6</p>
+                <p class="preview-rgb" id="preview-rgb">rgb(59, 130, 246)</p>
               </div>
             </aside>
           </div>
@@ -348,7 +325,6 @@
                 inputmode="tel"
                 required
                 aria-describedby="phone-hint phone-error"
-                placeholder="+91 90952 91686"
               />
               <p class="field-hint" id="phone-hint">7-15 digits. +, spaces, dashes and brackets are fine.</p>
               <p class="field-error" id="phone-error" role="alert"></p>

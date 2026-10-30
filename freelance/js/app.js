@@ -1,6 +1,6 @@
 /* =============================================================
    Website Builder Wizard — app.js
-   Gradient color editor · 200+ multi-select effects · page
+   Main color theme picker · 200+ multi-select effects · page
    structure · live summary · validated contact form · lead
    delivery to the backend (or Formspree/webhook fallback).
    ============================================================= */
@@ -22,7 +22,6 @@
 
   /* ---------------- Data ---------------- */
 
-  // Named palette used to label stop colors with friendly names
   const PALETTE = [
     { name: "Royal Blue", hex: "#3B82F6" },
     { name: "Indigo", hex: "#6366F1" },
@@ -64,18 +63,10 @@
   };
 
   /* ---------------- State ---------------- */
-  let stopIdSeq = 1;
   const state = {
     step: 1,
     maxStep: 1,
-    gradient: {
-      angle: 135,
-      stops: [
-        { id: stopIdSeq++, color: "#3B82F6", pos: 0 },
-        { id: stopIdSeq++, color: "#8B5CF6", pos: 100 },
-      ],
-      selectedId: 1,
-    },
+    color: PALETTE[0], // { name, hex } — main color theme
     effects: [], // array of effect ids (multi-select)
     pageCount: null,
     pageNames: [],
@@ -119,7 +110,7 @@
         best = p;
       }
     }
-    return best.name;
+    return bestD > 1600 ? { name: "Custom Color", hex: best.hex } : best;
   }
 
   const esc = (s) =>
@@ -135,6 +126,9 @@
   const submitBtn = $("#submit-btn");
   const announcer = $("#step-announcer");
   const progressBar = $("#progress-list");
+  const colorGrid = $("#color-grid");
+  const customColorInput = $("#custom-color-input");
+  const customHexInput = $("#custom-hex-input");
   const effectGrid = $("#effect-grid");
   const liveStage = $("#live-preview-stage");
   const chipCloud = $("#chip-cloud");
@@ -149,196 +143,93 @@
   const demoNote = $("#demo-note");
 
   /* =========================================================
-     STEP 1 · GRADIENT EDITOR
+     STEP 1 · MAIN COLOR THEME
      ========================================================= */
 
-  const gradBarWrap = $("#grad-bar-wrap");
-  const gradBar = $("#grad-bar");
-  const gradStopsEl = $("#grad-stops");
-  const stopColorInput = $("#stop-color-input");
-  const stopHexInput = $("#stop-hex-input");
-  const stopPosInput = $("#stop-pos-input");
-  const stopIndexLabel = $("#stop-index-label");
-  const delStopBtn = $("#del-stop-btn");
-  const angleInput = $("#grad-angle");
-  const angleVal = $("#grad-angle-val");
-
-  function sortedStops() {
-    return [...state.gradient.stops].sort((a, b) => a.pos - b.pos);
+  function renderColorGrid() {
+    colorGrid.innerHTML = PALETTE.map((c, i) => {
+      const checked = i === 0;
+      return `
+        <button
+          type="button"
+          class="color-swatch"
+          role="radio"
+          aria-checked="${checked}"
+          aria-label="${esc(c.name)} ${c.hex}"
+          data-hex="${c.hex}"
+          style="--swatch: ${c.hex}"
+        >
+          <span class="swatch-name" aria-hidden="true">${esc(c.name)}</span>
+          <span class="check-badge" aria-hidden="true">&#10003;</span>
+        </button>`;
+    }).join("");
   }
 
-  function selectedStop() {
-    return state.gradient.stops.find((s) => s.id === state.gradient.selectedId) || state.gradient.stops[0];
-  }
+  function applyColor(hex, name) {
+    const known = PALETTE.find((c) => c.hex === hex);
+    const resolved = known || nearestName(hex);
+    state.color = known
+      ? { name: known.name, hex: known.hex }
+      : { name: name || resolved.name || "Custom Color", hex: hex };
 
-  function gradientCss() {
-    const stops = sortedStops()
-      .map((s) => `${s.color} ${Math.round(s.pos)}%`)
-      .join(", ");
-    return `linear-gradient(${state.gradient.angle}deg, ${stops})`;
-  }
+    // Mark swatch selection (only for palette matches)
+    $$(".color-swatch", colorGrid).forEach((s) =>
+      s.setAttribute("aria-checked", String(s.dataset.hex === hex))
+    );
 
-  function gradientNames() {
-    const stops = sortedStops();
-    const names = stops.map((s) => nearestName(s.color));
-    const uniq = names.filter((n, i) => names.indexOf(n) === i);
-    return uniq.length <= 1 ? uniq[0] || "" : `${uniq[0]} to ${uniq[uniq.length - 1]}`;
-  }
-
-  function renderGradient() {
-    const css = gradientCss();
-
-    // Bar + page-wide preview
-    gradBar.style.background = css;
-    const preview = $("#grad-preview");
-    if (preview) preview.style.background = css;
-    $("#grad-css").textContent = css;
-    $("#grad-names").textContent = gradientNames();
-
-    // Accent follows the first stop so buttons/labels match the palette
-    const first = sortedStops()[0];
-    const [r, g, b] = hexToRgb(first.color);
+    const [r, g, b] = hexToRgb(hex);
     const rootStyle = document.documentElement.style;
-    rootStyle.setProperty("--accent", first.color);
+    rootStyle.setProperty("--accent", hex);
     rootStyle.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
     rootStyle.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.16)`);
     rootStyle.setProperty("--accent-glow", `rgba(${r}, ${g}, ${b}, 0.35)`);
 
-    // Stop markers
-    gradStopsEl.innerHTML = sortedStops()
-      .map((s, i) => `
-        <button
-          type="button"
-          class="grad-stop${s.id === state.gradient.selectedId ? " is-selected" : ""}"
-          style="left:${s.pos}%; --stop-color:${s.color}"
-          data-stop-id="${s.id}"
-          role="slider"
-          aria-label="Color stop ${i + 1}, ${s.color}, position ${Math.round(s.pos)} percent"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuenow="${Math.round(s.pos)}"
-          aria-valuetext="${s.color} at ${Math.round(s.pos)} percent"
-          tabindex="${s.id === state.gradient.selectedId ? "0" : "-1"}"
-        ><span class="grad-stop-dot" aria-hidden="true"></span></button>`)
-      .join("");
+    // Preview panel
+    $("#preview-swatch").style.background = hex;
+    $("#preview-name").textContent = state.color.name;
+    $("#preview-hex").textContent = hex;
+    $("#preview-rgb").textContent = `rgb(${r}, ${g}, ${b})`;
 
-    // Panel values for the selected stop
-    const sel = selectedStop();
-    const idx = sortedStops().findIndex((s) => s.id === sel.id) + 1;
-    stopIndexLabel.textContent = String(idx);
-    stopColorInput.value = sel.color.toLowerCase();
-    if (document.activeElement !== stopHexInput) stopHexInput.value = sel.color;
-    if (document.activeElement !== stopPosInput) stopPosInput.value = String(Math.round(sel.pos));
-    delStopBtn.disabled = state.gradient.stops.length <= 2;
-    angleInput.value = String(state.gradient.angle);
-    angleVal.textContent = `${state.gradient.angle}\u00B0`;
+    // Keep custom inputs in sync
+    if (document.activeElement !== customHexInput) customHexInput.value = hex;
+    customColorInput.value = hex.toLowerCase();
 
     updateSummary();
   }
 
-  function selectStop(id) {
-    state.gradient.selectedId = id;
-    renderGradient();
-  }
+  function initColors() {
+    renderColorGrid();
 
-  function stopAtPos(clientX) {
-    const rect = gradBar.getBoundingClientRect();
-    return clamp(Math.round(((clientX - rect.left) / rect.width) * 100), 0, 100);
-  }
-
-  function addStop(pos, color) {
-    const s = { id: stopIdSeq++, color: color || selectedStop().color, pos: clamp(pos, 0, 100) };
-    state.gradient.stops.push(s);
-    state.gradient.selectedId = s.id;
-    renderGradient();
-  }
-
-  function deleteStop(id) {
-    if (state.gradient.stops.length <= 2) return;
-    state.gradient.stops = state.gradient.stops.filter((s) => s.id !== id);
-    if (state.gradient.selectedId === id) {
-      state.gradient.selectedId = sortedStops()[0].id;
-    }
-    renderGradient();
-  }
-
-  function initGradient() {
-    // Click the track to add a stop there
-    gradBarWrap.addEventListener("click", (e) => {
-      if (e.target.closest(".grad-stop")) return;
-      addStop(stopAtPos(e.clientX), selectedStop().color);
+    colorGrid.addEventListener("click", (e) => {
+      const swatch = e.target.closest(".color-swatch");
+      if (!swatch) return;
+      applyColor(swatch.dataset.hex);
     });
 
-    // Markers: select + drag + keyboard
-    gradStopsEl.addEventListener("pointerdown", (e) => {
-      const marker = e.target.closest(".grad-stop");
-      if (!marker) return;
+    // Arrow-key navigation inside the radiogroup
+    colorGrid.addEventListener("keydown", (e) => {
+      if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       e.preventDefault();
-      const id = Number(marker.dataset.stopId);
-      selectStop(id);
-      marker.setPointerCapture(e.pointerId);
-
-      const move = (ev) => {
-        const s = state.gradient.stops.find((x) => x.id === id);
-        if (!s) return;
-        s.pos = stopAtPos(ev.clientX);
-        renderGradient();
-      };
-      const up = () => {
-        marker.releasePointerCapture?.(e.pointerId);
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-      };
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
+      const swatches = $$(".color-swatch", colorGrid);
+      const idx = swatches.indexOf(document.activeElement);
+      const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
+      const next = swatches[(idx + dir + swatches.length) % swatches.length];
+      next.focus();
+      applyColor(next.dataset.hex);
     });
 
-    gradStopsEl.addEventListener("keydown", (e) => {
-      const marker = e.target.closest(".grad-stop");
-      if (!marker) return;
-      const id = Number(marker.dataset.stopId);
-      const s = state.gradient.stops.find((x) => x.id === id);
-      if (!s) return;
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        s.pos = clamp(s.pos + (e.key === "ArrowRight" ? 1 : -1), 0, 100);
-        selectStop(id);
-        const again = $(`.grad-stop[data-stop-id="${id}"]`, gradStopsEl);
-        again?.focus();
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        deleteStop(id);
-      }
+    // Custom color picker (native spectrum) + hex field
+    customColorInput.addEventListener("input", () => {
+      applyColor(customColorInput.value.toUpperCase(), "Custom Color");
     });
-
-    // Color picker (native spectrum pop-up) + hex + position + angle
-    stopColorInput.addEventListener("input", () => {
-      const s = selectedStop();
-      s.color = stopColorInput.value.toUpperCase();
-      renderGradient();
+    customHexInput.addEventListener("input", () => {
+      const hex = normalizeHex(customHexInput.value);
+      if (hex) applyColor(hex, "Custom Color");
     });
-
-    stopHexInput.addEventListener("input", () => {
-      const hex = normalizeHex(stopHexInput.value);
-      if (hex) {
-        selectedStop().color = hex;
-        renderGradient();
-      }
+    customHexInput.addEventListener("blur", () => {
+      const hex = normalizeHex(customHexInput.value);
+      applyColor(hex || state.color.hex, "Custom Color");
     });
-    stopHexInput.addEventListener("blur", () => renderGradient());
-
-    stopPosInput.addEventListener("input", () => {
-      const v = clamp(Number(stopPosInput.value) || 0, 0, 100);
-      selectedStop().pos = v;
-      renderGradient();
-    });
-
-    angleInput.addEventListener("input", () => {
-      state.gradient.angle = Number(angleInput.value);
-      renderGradient();
-    });
-
-    delStopBtn.addEventListener("click", () => deleteStop(state.gradient.selectedId));
   }
 
   /* =========================================================
@@ -376,9 +267,7 @@
     const q = state.fxSearch.trim().toLowerCase();
     if (state.fxCat !== "all") list = list.filter((e) => e.cat === state.fxCat);
     if (q) list = list.filter((e) => e.name.toLowerCase().includes(q) || e.catLabel.toLowerCase().includes(q));
-    if (state.fxSort === "name") {
-      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    } // "category" order is pre-sorted in effects.js
+    if (state.fxSort === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     return list;
   }
 
@@ -426,7 +315,6 @@
           .join(", ")}`
       : "None selected yet";
 
-    // Rebuild the live stage with every selected effect
     const selected = state.effects
       .map((id) => EFFECTS().find((e) => e.id === id))
       .filter(Boolean);
@@ -446,7 +334,6 @@
       .join("");
   }
 
-  // Restart an animation when a card is hovered (fresh preview every time)
   function playCardPreview(card) {
     const el = card.querySelector(".fx-el");
     if (!el) return;
@@ -464,7 +351,6 @@
     renderCategories();
     renderEffects();
 
-    // Search / sort / category toolbar
     $("#fx-search").addEventListener("input", (e) => {
       state.fxSearch = e.target.value;
       renderEffects();
@@ -481,7 +367,6 @@
       renderEffects();
     });
 
-    // Multi-select toggling
     effectGrid.addEventListener("change", (e) => {
       if (e.target.type !== "checkbox") return;
       const id = e.target.value;
@@ -499,15 +384,13 @@
       updateSummary();
     });
 
-    // Hover / focus plays a live preview
     effectGrid.addEventListener("mouseover", (e) => {
       const card = e.target.closest(".effect-card");
       if (card) playCardPreview(card);
     });
     effectGrid.addEventListener("mouseout", (e) => {
       const card = e.target.closest(".effect-card");
-      if (card && !e.relatedTarget?.closest?.(".effect-card")) stopCardPreview(card);
-      else if (card && !card.contains(e.relatedTarget)) stopCardPreview(card);
+      if (card && !card.contains(e.relatedTarget)) stopCardPreview(card);
     });
     effectGrid.addEventListener("focusin", (e) => {
       const card = e.target.closest(".effect-card");
@@ -640,9 +523,7 @@
      ========================================================= */
 
   function buildColourLine() {
-    const css = gradientCss();
-    const names = gradientNames();
-    return names ? `${css} (${names})` : css;
+    return `${state.color.hex} (${state.color.name})`;
   }
 
   function buildEffectLine() {
@@ -674,8 +555,8 @@
     attachPreview.textContent = text;
 
     const recapSwatch = $("#recap-swatch");
-    if (recapSwatch) recapSwatch.style.background = gradientCss();
-    $("#recap-color").textContent = gradientNames();
+    if (recapSwatch) recapSwatch.style.background = state.color.hex;
+    $("#recap-color").textContent = `${state.color.name} · ${state.color.hex}`;
     $("#recap-effect").textContent = state.effects.length
       ? `${state.effects.length} effect${state.effects.length === 1 ? "" : "s"} selected`
       : "—";
@@ -739,7 +620,7 @@
 
     const titles = [
       "",
-      "Step 1: Build your color gradient",
+      "Step 1: Choose your main color theme",
       "Step 2: Choose your animation effects",
       "Step 3: Website structure and specs",
       "Step 4: Your specification summary",
@@ -1007,16 +888,7 @@
       $("#fx-search").value = "";
       $("#fx-sort").value = "category";
       $$(".fx-cat").forEach((b) => b.classList.toggle("is-active", b.dataset.cat === "all"));
-      state.gradient = {
-        angle: 135,
-        stops: [
-          { id: stopIdSeq++, color: "#3B82F6", pos: 0 },
-          { id: stopIdSeq++, color: "#8B5CF6", pos: 100 },
-        ],
-        selectedId: null,
-      };
-      state.gradient.selectedId = state.gradient.stops[0].id;
-      renderGradient();
+      applyColor(PALETTE[0].hex);
       renderChips();
       renderEffects();
       updateSummary();
@@ -1028,8 +900,8 @@
 
   /* ---------------- Boot ---------------- */
   function init() {
-    initGradient();
-    renderGradient();
+    initColors();
+    applyColor(PALETTE[0].hex);
     initEffects();
     initStructure();
     initSummary();

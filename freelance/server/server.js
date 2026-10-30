@@ -63,6 +63,9 @@ function validateLead(b) {
 }
 
 /* ---------------- Email (optional — SMTP or Resend) ---------------- */
+// All notifications are delivered to this address (override with NOTIFY_EMAIL)
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "shrivatsan.anandraj@gmail.com";
+
 async function sendEmail(payload) {
   // Option A: SMTP (Gmail app password, Outlook, etc.)
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -75,7 +78,7 @@ async function sendEmail(payload) {
     });
     await tx.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: process.env.SMTP_USER, // notify yourself; comma-separate to add more
+      to: NOTIFY_EMAIL,
       subject: payload._subject || "[Website Wizard] New website request",
       text: [
         "New website request received!\n",
@@ -101,7 +104,7 @@ async function sendEmail(payload) {
       },
       body: JSON.stringify({
         from: process.env.RESEND_FROM || "Website Wizard <onboarding@resend.dev>",
-        to: [process.env.SMTP_USER || process.env.RESEND_TO || "you@example.com"],
+        to: [NOTIFY_EMAIL],
         subject: payload._subject || "[Website Wizard] New website request",
         text: `New lead:\n\nName: ${payload.fullName}\nPurpose: ${payload.purpose}\nPhone: ${payload.phone}\nEmail: ${payload.email}\n\n----- Specification -----\n${payload.summary}`,
       }),
