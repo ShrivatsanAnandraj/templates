@@ -648,6 +648,10 @@
 
   function endpoints() {
     const list = [];
+    // Local/self-hosted backend (freelance/server) — used when served over http(s)
+    if (window.location.protocol.startsWith("http")) {
+      list.push({ url: "/api/lead", kind: "backend", allowFallback: true });
+    }
     if (
       CONFIG.formspreeEndpoint &&
       !CONFIG.formspreeEndpoint.includes("YOUR_FORM_ID")
@@ -658,25 +662,27 @@
     return list;
   }
 
+  function demoCapture(payload, reason) {
+    console.info(
+      "%c[Website Wizard] DEMO MODE — lead captured locally only. " + reason,
+      "color:#f59e0b;font-weight:bold",
+      payload
+    );
+    try {
+      const archive = JSON.parse(localStorage.getItem("wizardLeads") || "[]");
+      archive.push(payload);
+      localStorage.setItem("wizardLeads", JSON.stringify(archive));
+    } catch {
+      /* storage unavailable — ignore */
+    }
+    return { demo: true };
+  }
+
   async function sendRequest(payload) {
     const targets = endpoints();
 
-    // Demo mode — nothing configured yet
-    if (targets.length === 0) {
-      console.info(
-        "%c[Website Wizard] DEMO MODE — no endpoint configured. Payload:",
-        "color:#f59e0b;font-weight:bold",
-        payload
-      );
-      try {
-        const archive = JSON.parse(localStorage.getItem("wizardLeads") || "[]");
-        archive.push(payload);
-        localStorage.setItem("wizardLeads", JSON.stringify(archive));
-      } catch {
-        /* storage unavailable — ignore */
-      }
-      return { demo: true };
-    }
+    // Nothing configured at all
+    if (targets.length === 0) return demoCapture(payload, "No endpoint configured.");
 
     const results = await Promise.allSettled(
       targets.map((t) =>
@@ -690,21 +696,34 @@
         }).then(async (res) => {
           if (!res.ok) {
             const body = await res.text().catch(() => "");
-            throw new Error(`${t.kind} ${res.status}: ${body.slice(0, 200)}`);
+            const err = new Error(`${t.kind} ${res.status}: ${body.slice(0, 200)}`);
+            err.http = true;
+            throw err;
           }
           return res;
         })
       )
     );
 
+    const succeeded = results.filter((r) => r.status === "fulfilled");
     const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length === results.length) {
-      throw new Error(failed[0].reason?.message || "All delivery endpoints failed.");
+
+    if (succeeded.length > 0) {
+      if (failed.length) console.warn("[Website Wizard] Some endpoints failed:", failed);
+      return { demo: false };
     }
-    if (failed.length) {
-      console.warn("[Website Wizard] Some endpoints failed:", failed);
+
+    // Everything failed. If every target allows fallback and every failure was
+    // network-level (server not running / offline) → demo mode instead of
+    // blocking the user with an error.
+    const onlyFallbackTargets = targets.every((t) => t.allowFallback);
+    const allNetworkErrors = failed.every((r) => !r.reason?.http);
+    if (onlyFallbackTargets && allNetworkErrors) {
+      return demoCapture(payload, "Backend unreachable (is `npm start` running?).");
     }
-    return { demo: false };
+
+    console.error("[Website Wizard] Delivery failed:", failed);
+    throw new Error(failed[0].reason?.message || "All delivery endpoints failed.");
   }
 
   async function handleSubmit(e) {
