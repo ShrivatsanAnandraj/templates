@@ -633,6 +633,7 @@
      ========================================================= */
 
   function goToStep(n, { focus = true } = {}) {
+    n = Math.min(5, Math.max(1, Number(n) || 1));
     dbg("goToStep(" + n + ")");
     state.step = n;
     state.maxStep = Math.max(state.maxStep, n);
@@ -989,6 +990,7 @@
     updateSummary();
 
     nextBtn.addEventListener("click", () => {
+      if (state.step >= 5) return;
       if (!validateStep(state.step)) return;
       goToStep(state.step + 1);
     });
