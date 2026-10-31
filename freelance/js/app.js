@@ -8,6 +8,46 @@
   "use strict";
 
   /* ---------------------------------------------------------
+     Self-diagnostics overlay — open with ?debug=1 in the URL.
+     Shows which app.js version loaded and traces the send flow.
+     --------------------------------------------------------- */
+  const APP_VERSION = "v5-diagnose";
+  const debugOn = /[?&]debug\b/.test(location.search);
+  let dbgEl = null;
+  const dbgLines = [];
+
+  function ensureDbg() {
+    if (dbgEl || !document.body) return;
+    dbgEl = document.createElement("pre");
+    dbgEl.id = "wiz-debug";
+    dbgEl.style.cssText =
+      "position:fixed;left:8px;bottom:8px;z-index:99999;max-width:94vw;max-height:45vh;" +
+      "overflow:auto;margin:0;padding:10px 12px;background:rgba(0,0,0,.9);color:#4ade80;" +
+      "font:11px/1.55 monospace;white-space:pre-wrap;border:1px solid #3f3f46;border-radius:8px;pointer-events:none;";
+    document.body.appendChild(dbgEl);
+  }
+
+  function dbg(msg) {
+    const t = new Date().toTimeString().slice(0, 8);
+    dbgLines.push(t + " " + msg);
+    if (dbgLines.length > 40) dbgLines.shift();
+    if (!debugOn && !dbgEl) return;
+    ensureDbg();
+    if (dbgEl) {
+      dbgEl.textContent =
+        "WIZARD DEBUG " + APP_VERSION + "  (" + location.protocol + ")\n" + dbgLines.join("\n");
+      dbgEl.scrollTop = dbgEl.scrollHeight;
+    }
+  }
+
+  window.addEventListener("error", (e) => dbg("JS ERROR: " + (e.message || e.type)));
+  window.addEventListener("unhandledrejection", (e) =>
+    dbg("PROMISE REJECTION: " + ((e.reason && e.reason.message) || e.reason))
+  );
+  if (debugOn) ensureDbg();
+  dbg("app.js " + APP_VERSION + " evaluated, origin=" + location.origin);
+
+  /* ---------------------------------------------------------
      CONFIG — optional extra delivery endpoints.
      The primary endpoint is POST /api/lead (backend/serverless),
      detected automatically when served over http(s).
@@ -593,6 +633,7 @@
      ========================================================= */
 
   function goToStep(n, { focus = true } = {}) {
+    dbg("goToStep(" + n + ")");
     state.step = n;
     state.maxStep = Math.max(state.maxStep, n);
 
@@ -772,6 +813,7 @@
   }
 
   function demoCapture(payload, reason) {
+    dbg("DEMO FALLBACK: " + reason);
     console.info(
       "%c[Website Wizard] DEMO MODE - lead captured locally only. " + reason,
       "color:#f59e0b;font-weight:bold",
@@ -816,6 +858,10 @@
 
     const succeeded = results.filter((r) => r.status === "fulfilled");
     const failed = results.filter((r) => r.status === "rejected");
+    dbg(
+      "API result: " + succeeded.length + " ok, " + failed.length + " failed" +
+        (failed[0] ? " — " + String(failed[0].reason && failed[0].reason.message).slice(0, 110) : "")
+    );
 
     if (succeeded.length > 0) {
       if (failed.length) console.warn("[Website Wizard] Some endpoints failed:", failed);
@@ -834,10 +880,15 @@
 
   async function handleSubmit(e) {
     e.preventDefault();
+    dbg("handleSubmit fired: step=" + state.step + " sending=" + state.sending);
 
     if (state.sending) {
       // A previous send hung (dropped network) — recover instead of ignoring clicks forever
-      if (Date.now() - state.sendingAt < 20000) return;
+      if (Date.now() - state.sendingAt < 20000) {
+        dbg("blocked: previous send still in flight");
+        return;
+      }
+      dbg("recovering hung send");
       state.sending = false;
       submitBtn.classList.remove("is-loading");
       submitBtn.removeAttribute("aria-busy");
@@ -849,6 +900,7 @@
       const step5 = $('[data-step="5"]');
       if (step5 && !step5.hidden) {
         state.step = 5;
+        dbg("step mismatch — forcing step=5 (panel visible)");
       } else {
         nextBtn.click();
         return;
@@ -856,10 +908,13 @@
     }
 
     if (!validateContact(true)) {
+      const bad = $('[aria-invalid="true"]');
+      dbg("validation FAILED — invalid: " + (bad ? bad.id || "?" : "?"));
       $('[aria-invalid="true"]')?.focus();
       return;
     }
 
+    dbg("validation OK — POSTing to " + endpoints().map((t) => t.url).join(", "));
     state.sending = true;
     state.sendingAt = Date.now();
     submitBtn.setAttribute("aria-disabled", "true");
@@ -876,9 +931,11 @@
       $("#confirmation-spec").textContent = payload.summary;
       $("#confirmation-title").focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: "smooth" });
+      dbg("CONFIRMATION SHOWN (demo=" + result.demo + ")");
       if (result.demo) console.info("[Website Wizard] Shown confirmation in demo mode.");
     } catch (err) {
       console.error("[Website Wizard] Submission failed:", err);
+      dbg("SUBMIT ERROR: " + (err && err.message));
       showFormAlert(
         "Sorry - we could not send your request right now. Please check your connection and try again, or call " +
           CONTACT_PHONE +
@@ -940,6 +997,7 @@
     // Direct click path — guarantees the button always responds even if the
     // browser's implicit form-submission handling differs
     submitBtn.addEventListener("click", (e) => {
+      dbg("submit CLICK event received (native disabled=" + submitBtn.disabled + ")");
       e.preventDefault();
       handleSubmit(e);
     });
@@ -952,6 +1010,7 @@
     });
 
     if (endpoints().length === 0) demoNote.hidden = false;
+    dbg("init complete — all listeners bound. endpoints=" + (endpoints().map((t) => t.url).join(",") || "none"));
   }
 
   if (document.readyState === "loading") {
