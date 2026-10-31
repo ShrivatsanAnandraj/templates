@@ -73,6 +73,7 @@
     customPages: [],
     customNotes: "",
     sending: false,
+    sendingAt: 0,
     fxSearch: "",
     fxSort: "category",
     fxCat: "all",
@@ -791,21 +792,26 @@
     if (targets.length === 0) return demoCapture(payload, "No endpoint configured.");
 
     const results = await Promise.allSettled(
-      targets.map((t) =>
-        fetch(t.url, {
+      targets.map((t) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20000);
+        return fetch(t.url, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify(payload),
-        }).then(async (res) => {
-          if (!res.ok) {
-            const body = await res.text().catch(() => "");
-            const err = new Error(`${t.kind} ${res.status}: ${body.slice(0, 200)}`);
-            err.http = true;
-            throw err;
-          }
-          return res;
+          signal: ctrl.signal,
         })
-      )
+          .then(async (res) => {
+            if (!res.ok) {
+              const body = await res.text().catch(() => "");
+              const err = new Error(`${t.kind} ${res.status}: ${body.slice(0, 200)}`);
+              err.http = true;
+              throw err;
+            }
+            return res;
+          })
+          .finally(() => clearTimeout(timer));
+      })
     );
 
     const succeeded = results.filter((r) => r.status === "fulfilled");
@@ -828,11 +834,25 @@
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (state.sending) return;
+
+    if (state.sending) {
+      // A previous send hung (dropped network) — recover instead of ignoring clicks forever
+      if (Date.now() - state.sendingAt < 20000) return;
+      state.sending = false;
+      submitBtn.classList.remove("is-loading");
+      submitBtn.removeAttribute("aria-busy");
+      submitBtn.setAttribute("aria-disabled", "false");
+    }
 
     if (state.step !== 5) {
-      nextBtn.click();
-      return;
+      // Defence: if the contact step is actually on screen, treat this as a submit
+      const step5 = $('[data-step="5"]');
+      if (step5 && !step5.hidden) {
+        state.step = 5;
+      } else {
+        nextBtn.click();
+        return;
+      }
     }
 
     if (!validateContact(true)) {
@@ -841,6 +861,7 @@
     }
 
     state.sending = true;
+    state.sendingAt = Date.now();
     submitBtn.setAttribute("aria-disabled", "true");
     submitBtn.classList.add("is-loading");
     submitBtn.setAttribute("aria-busy", "true");
@@ -916,6 +937,12 @@
     });
     backBtn.addEventListener("click", () => goToStep(state.step - 1));
     form.addEventListener("submit", handleSubmit);
+    // Direct click path — guarantees the button always responds even if the
+    // browser's implicit form-submission handling differs
+    submitBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleSubmit(e);
+    });
 
     document.addEventListener("click", (e) => {
       const target = e.target.closest("[data-goto]");
