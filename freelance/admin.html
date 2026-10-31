@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Wizard Leads — Admin</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  body {
+    min-height: 100vh;
+    padding: 2rem 1.25rem 4rem;
+  }
+
+  .admin-shell {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  .admin-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .admin-header h1 {
+    font-size: 1.4rem;
+    font-weight: 900;
+  }
+
+  .admin-header h1 span {
+    background: linear-gradient(135deg, var(--accent), #a855f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .admin-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .lead-count {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-2);
+    padding: 0.4rem 0.8rem;
+    background: var(--surface-3);
+    border-radius: 999px;
+  }
+
+  .search-box {
+    flex: 1 1 220px;
+    max-width: 340px;
+  }
+
+  .search-box input {
+    width: 100%;
+  }
+
+  .btn-small {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.9rem;
+  }
+
+  /* ---------- token gate ---------- */
+  .token-gate {
+    max-width: 420px;
+    margin: 12vh auto 0;
+    text-align: center;
+  }
+
+  .token-gate h1 {
+    font-size: 1.3rem;
+    font-weight: 900;
+    margin-bottom: 0.5rem;
+  }
+
+  .token-gate p {
+    color: var(--text-2);
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .token-form {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  .token-form input {
+    flex: 1;
+  }
+
+  .gate-error {
+    margin-top: 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--danger, #f87171);
+  }
+
+  /* ---------- lead cards ---------- */
+  .lead-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .lead-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 1.1rem 1.25rem;
+    transition: border-color 0.2s var(--ease);
+  }
+
+  .lead-card:hover {
+    border-color: var(--border-strong);
+  }
+
+  .lead-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.4rem 1rem;
+  }
+
+  .lead-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  .lead-date {
+    font-size: 0.78rem;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+
+  .lead-contact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.6rem 0 0.75rem;
+  }
+
+  .lead-contact a {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    background: var(--accent-soft);
+    border-radius: 999px;
+    transition: filter 0.2s var(--ease);
+  }
+
+  .lead-contact a:hover {
+    filter: brightness(1.15);
+  }
+
+  .lead-purpose {
+    font-size: 0.9rem;
+    color: var(--text-2);
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .lead-spec {
+    background: var(--surface-3);
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-1);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    font-family: var(--mono, monospace);
+  }
+
+  .lead-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .lead-chip {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--text-2);
+  }
+
+  .lead-chip.colour {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .colour-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3.5rem 1rem;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+
+  .empty-state .empty-emoji-placeholder {
+    display: none;
+  }
+
+  .status-line {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-2);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<main class="admin-shell">
+
+  <!-- Token gate -->
+  <section class="token-gate" id="token-gate" hidden>
+    <h1>Wizard Leads — Admin</h1>
+    <p>Enter the admin token to view submitted requests.</p>
+    <form class="token-form" id="token-form">
+      <input type="password" id="token-input" placeholder="Admin token" autocomplete="off" required>
+      <button type="submit" class="btn btn-primary btn-small">Unlock</button>
+    </form>
+    <p class="gate-error" id="gate-error" hidden></p>
+  </section>
+
+  <!-- Leads view -->
+  <section id="leads-view" hidden>
+    <header class="admin-header">
+      <h1>Wizard <span>Leads</span></h1>
+      <div class="admin-meta">
+        <span class="lead-count" id="lead-count">0 leads</span>
+        <div class="search-box">
+          <input type="search" id="search" placeholder="Search name, phone, email...">
+        </div>
+        <button type="button" class="btn btn-ghost btn-small" id="refresh-btn">Refresh</button>
+        <button type="button" class="btn btn-ghost btn-small" id="logout-btn">Log out</button>
+      </div>
+    </header>
+    <div class="lead-list" id="lead-list"></div>
+    <p class="empty-state" id="empty-state" hidden>No leads yet.</p>
+    <p class="status-line" id="status-line" hidden></p>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const TOKEN_KEY = "wizardAdminToken";
+  let allLeads = [];
+
+  function token() {
+    return localStorage.getItem(TOKEN_KEY) || "";
+  }
+
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  function setView(loggedIn) {
+    $("#token-gate").hidden = loggedIn;
+    $("#leads-view").hidden = !loggedIn;
+  }
+
+  function showGateError(msg) {
+    const el = $("#gate-error");
+    el.textContent = msg;
+    el.hidden = !msg;
+  }
+
+  function status(msg, isError) {
+    const el = $("#status-line");
+    el.textContent = msg || "";
+    el.hidden = !msg;
+    el.style.color = isError ? "var(--danger, #f87171)" : "";
+  }
+
+  function leadCard(lead) {
+    const card = document.createElement("article");
+    card.className = "lead-card";
+
+    const top = document.createElement("div");
+    top.className = "lead-top";
+    const name = document.createElement("span");
+    name.className = "lead-name";
+    name.textContent = lead.full_name;
+    const date = document.createElement("span");
+    date.className = "lead-date";
+    date.textContent = "#" + lead.id + " · " + fmtDate(lead.created_at);
+    top.append(name, date);
+    card.appendChild(top);
+
+    const contact = document.createElement("div");
+    contact.className = "lead-contact";
+    const phone = document.createElement("a");
+    phone.href = "tel:" + lead.phone.replace(/[^\d+]/g, "");
+    phone.textContent = lead.phone;
+    const mail = document.createElement("a");
+    mail.href = "mailto:" + lead.email;
+    mail.textContent = lead.email;
+    contact.append(phone, mail);
+    card.appendChild(contact);
+
+    if (lead.purpose) {
+      const purpose = document.createElement("p");
+      purpose.className = "lead-purpose";
+      purpose.textContent = lead.purpose;
+      card.appendChild(purpose);
+    }
+
+    const chips = document.createElement("div");
+    chips.className = "lead-chips";
+    if (lead.colour) {
+      const chip = document.createElement("span");
+      chip.className = "lead-chip colour";
+      const m = String(lead.colour).match(/#[0-9a-fA-F]{6}/);
+      if (m) {
+        const dot = document.createElement("span");
+        dot.className = "colour-dot";
+        dot.style.background = m[0];
+        chip.appendChild(dot);
+      }
+      chip.appendChild(document.createTextNode(String(lead.colour).replace(/\s*\(.*\)$/, "")));
+      chips.appendChild(chip);
+    }
+    if (lead.effect) {
+      String(lead.effect).split(",").slice(0, 8).forEach((fx) => {
+        const chip = document.createElement("span");
+        chip.className = "lead-chip";
+        chip.textContent = fx.trim();
+        chips.appendChild(chip);
+      });
+    }
+    if (chips.children.length) card.appendChild(chips);
+
+    const pre = document.createElement("pre");
+    pre.className = "lead-spec";
+    pre.textContent = lead.summary || "";
+    card.appendChild(pre);
+
+    return card;
+  }
+
+  function render() {
+    const q = $("#search").value.trim().toLowerCase();
+    const filtered = q
+      ? allLeads.filter((l) =>
+          [l.full_name, l.phone, l.email, l.purpose].join(" ").toLowerCase().includes(q)
+        )
+      : allLeads;
+
+    const list = $("#lead-list");
+    list.textContent = "";
+    filtered.forEach((l) => list.appendChild(leadCard(l)));
+
+    $("#lead-count").textContent = allLeads.length + (allLeads.length === 1 ? " lead" : " leads");
+    $("#empty-state").hidden = filtered.length > 0 || !!q;
+    if (q && filtered.length === 0) {
+      $("#empty-state").hidden = false;
+      $("#empty-state").textContent = "No leads match your search.";
+    } else {
+      $("#empty-state").textContent = "No leads yet.";
+    }
+  }
+
+  async function loadLeads() {
+    status("Loading leads...", false);
+    try {
+      const res = await fetch("/api/leads", {
+        headers: { "x-admin-token": token() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        showGateError("Invalid token. Try again.");
+        setView(false);
+        return;
+      }
+      if (!res.ok || !data.ok) {
+        status(data.error || "Failed to load leads (HTTP " + res.status + ").", true);
+        return;
+      }
+      allLeads = data.leads || [];
+      status("");
+      render();
+    } catch (e) {
+      status("Network error — could not reach the API.", true);
+    }
+  }
+
+  $("#token-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const value = $("#token-input").value.trim();
+    if (!value) return;
+    showGateError("");
+    try {
+      const res = await fetch("/api/leads", { headers: { "x-admin-token": value } });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 200 && data.ok) {
+        localStorage.setItem(TOKEN_KEY, value);
+        allLeads = data.leads || [];
+        setView(true);
+        render();
+      } else {
+        showGateError(res.status === 403 ? "ADMIN_TOKEN is not configured on the server." : "Invalid token.");
+      }
+    } catch {
+      showGateError("Network error — could not reach the API.");
+    }
+  });
+
+  $("#search").addEventListener("input", render);
+  $("#refresh-btn").addEventListener("click", loadLeads);
+  $("#logout-btn").addEventListener("click", () => {
+    localStorage.removeItem(TOKEN_KEY);
+    allLeads = [];
+    $("#token-input").value = "";
+    setView(false);
+  });
+
+  if (token()) {
+    setView(true);
+    loadLeads();
+  } else {
+    setView(false);
+  }
+})();
+</script>
+</body>
+</html>

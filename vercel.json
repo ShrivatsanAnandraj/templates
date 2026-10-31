@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/freelance/index.html" },
+    { "source": "/admin", "destination": "/freelance/admin.html" },
     { "source": "/((?!api/).*)", "destination": "/freelance/$1" }
   ]
 }

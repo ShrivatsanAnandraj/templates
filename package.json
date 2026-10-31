@@ -4,7 +4,6 @@
   "private": true,
   "description": "Template collection — includes the freelance website-builder wizard (static + serverless API)",
   "dependencies": {
-    "nodemailer": "^10.3.1",
     "pg": "^8.23.1"
   }
 }

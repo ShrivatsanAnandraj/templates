@@ -1,7 +1,6 @@
 /* =============================================================
    Vercel serverless function — POST /api/lead
-   Stores the wizard lead in Neon Postgres and emails you
-   (SMTP or Resend, if configured via env vars).
+   Stores the wizard lead in Neon Postgres.
    Env required: DATABASE_URL
    ============================================================= */
 const { Pool } = require("pg");
@@ -55,62 +54,6 @@ function validateLead(b) {
   return errors;
 }
 
-// All notifications are delivered to this address (override with NOTIFY_EMAIL)
-const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "shrivatsan.anandraj@gmail.com";
-
-async function sendEmail(payload) {
-  const subject = payload._subject || "[Website Wizard] New website request";
-  const text = [
-    "New website request received!\n",
-    `Name:    ${payload.fullName}`,
-    `Purpose: ${payload.purpose}`,
-    `Phone:   ${payload.phone}`,
-    `Email:   ${payload.email}`,
-    "",
-    "----- Specification -----",
-    payload.summary,
-  ].join("\n");
-
-  // Option A: SMTP (Gmail app password, Outlook, …)
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    const nodemailer = require("nodemailer");
-    const tx = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: Number(process.env.SMTP_PORT) === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
-    await tx.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: NOTIFY_EMAIL,
-      subject,
-      text,
-    });
-    return "smtp";
-  }
-
-  // Option B: Resend API
-  if (process.env.RESEND_API_KEY) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM || "Website Wizard <onboarding@resend.dev>",
-        to: [NOTIFY_EMAIL],
-        subject,
-        text,
-      }),
-    });
-    if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
-    return "resend";
-  }
-
-  return null;
-}
-
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -152,15 +95,7 @@ module.exports = async (req, res) => {
     );
     console.log(`[lead] saved #${rows[0].id} for ${b.email}`);
 
-    let emailVia = null;
-    try {
-      emailVia = await sendEmail(b);
-      console.log(emailVia ? `[email] sent via ${emailVia}` : "[email] skipped — no provider configured");
-    } catch (e) {
-      console.error("[email] failed (lead still saved):", e.message);
-    }
-
-    return res.status(200).json({ ok: true, id: Number(rows[0].id), emailSent: Boolean(emailVia) });
+    return res.status(200).json({ ok: true, id: Number(rows[0].id) });
   } catch (e) {
     console.error("[lead] save failed:", e.message);
     return res
