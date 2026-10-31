@@ -1280,7 +1280,8 @@ select.text-input:focus {
   box-shadow: 0 16px 34px var(--accent-glow);
 }
 
-.btn-primary:disabled {
+.btn-primary:disabled,
+.btn-primary[aria-disabled="true"] {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
@@ -1298,7 +1299,8 @@ select.text-input:focus {
   background: var(--surface-strong);
 }
 
-.btn-ghost:disabled {
+.btn-ghost:disabled,
+.btn-ghost[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }

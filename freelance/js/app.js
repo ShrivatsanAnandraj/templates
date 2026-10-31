@@ -724,7 +724,7 @@
     setFieldError(email, $("#email-error"), msg);
     if (msg) ok = false;
 
-    submitBtn.disabled = !ok || state.sending;
+    submitBtn.setAttribute("aria-disabled", String(!ok || state.sending));
     return ok;
   }
 
@@ -734,7 +734,7 @@
       el.addEventListener("blur", () => validateContact(true));
       el.addEventListener("input", () => {
         if (el.getAttribute("aria-invalid") === "true") validateContact(true);
-        else submitBtn.disabled = false;
+        else submitBtn.setAttribute("aria-disabled", "false");
       });
     });
   }
@@ -841,7 +841,7 @@
     }
 
     state.sending = true;
-    submitBtn.disabled = true;
+    submitBtn.setAttribute("aria-disabled", "true");
     submitBtn.classList.add("is-loading");
     submitBtn.setAttribute("aria-busy", "true");
     clearFormAlert();
@@ -867,7 +867,7 @@
       state.sending = false;
       submitBtn.classList.remove("is-loading");
       submitBtn.removeAttribute("aria-busy");
-      submitBtn.disabled = false;
+      submitBtn.setAttribute("aria-disabled", "false");
     }
   }
 
